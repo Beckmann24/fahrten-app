@@ -67,6 +67,7 @@
       border-radius: 4px;
     }
   </style>
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyATG0N_aygLOAoWYUT1bktNDrzIaTabRck&libraries=places"></script>
 </head>
 <body>
   <header>
@@ -90,15 +91,18 @@
 
     <div class="form-group">
       <label for="fahrer">Fahrer auswählen oder anlegen:</label>
-      <select id="fahrer">
-        <option value="benedikt">Benedikt Beyer</option>
-        <option value="neu">Neuen Fahrer anlegen</option>
-      </select>
+      <input list="fahrer-list" id="fahrer" placeholder="z. B. Benedikt Beyer">
+      <datalist id="fahrer-list">
+        <option value="Benedikt Beyer">
+      </datalist>
     </div>
 
     <div class="form-group">
       <label for="auto">Auto:</label>
-      <input type="text" id="auto" placeholder="z. B. VW Golf">
+      <input list="auto-list" id="auto" placeholder="z. B. VW Golf">
+      <datalist id="auto-list">
+        <option value="VW Golf">
+      </datalist>
     </div>
 
     <div class="form-group">
@@ -125,6 +129,13 @@
 
   <script>
     const ORS_API_KEY = "5b3ce3597851110001cf6248bd1c9d31486f44c6bb3dab1d5f08318a";
+
+    function initAutocomplete() {
+      new google.maps.places.Autocomplete(document.getElementById('start'));
+      new google.maps.places.Autocomplete(document.getElementById('ziel'));
+    }
+
+    window.onload = initAutocomplete;
 
     async function berechneFahrt() {
       const start = document.getElementById("start").value;
@@ -158,7 +169,7 @@
         const durationMin = data.features[0].properties.summary.duration / 60;
 
         const pauschale = getPauschale(kraftstoff, baujahr);
-        const fahrerlohn = fahrer === "benedikt" ? 12.7 : 0;
+        const fahrerlohn = fahrer.toLowerCase().includes("benedikt") ? 12.7 : 0;
         const spritkosten = (distKm * pauschale).toFixed(2);
         const lohnkosten = (fahrerlohn * (durationMin / 60)).toFixed(2);
         const gesamt = (parseFloat(spritkosten) + parseFloat(lohnkosten)).toFixed(2);
