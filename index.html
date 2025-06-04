@@ -2,69 +2,84 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Beckmann Fahrten</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Fahrtkostenrechner mit Route</title>
+
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: #f4f4f4;
-      margin: 0;
+      background-color: #f4f4f4;
+      margin: 0; padding: 0;
     }
     header {
-      background: #000;
-      color: #fff;
+      background-color: #000;
+      color: white;
       padding: 1rem 2rem;
       display: flex;
       justify-content: space-between;
+      align-items: center;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 1.5rem;
     }
     .container {
       max-width: 800px;
-      margin: 2rem auto;
-      background: #fff;
+      margin: 1rem auto 2rem;
       padding: 1rem;
+      background-color: white;
       border-radius: 8px;
-      box-shadow: 0 0 8px rgba(0,0,0,0.1);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
     .form-group {
       margin-bottom: 1rem;
     }
-    label {
-      font-weight: bold;
+    .form-group label {
       display: block;
-      margin-bottom: 0.5rem;
+      font-weight: bold;
+      margin-bottom: 0.3rem;
     }
-    input, select {
+    input, select, button {
       width: 100%;
-      padding: 0.5rem;
+      padding: 0.4rem 0.6rem;
+      font-size: 1rem;
       border-radius: 4px;
       border: 1px solid #ccc;
+      box-sizing: border-box;
     }
     .fuel-options {
       display: flex;
       gap: 1rem;
     }
+    .fuel-options label {
+      font-weight: normal;
+    }
     button {
-      padding: 0.75rem;
-      background: #007bff;
+      cursor: pointer;
+      background-color: #000;
       color: white;
       border: none;
+      padding: 0.6rem;
+      font-size: 1.1rem;
       border-radius: 4px;
-      cursor: pointer;
     }
     #result {
       margin-top: 1rem;
-      background: #eee;
       padding: 1rem;
+      background-color: #eee;
       border-radius: 4px;
     }
     #map {
       height: 400px;
       margin-top: 1rem;
       border-radius: 8px;
+      border: 1px solid #ccc;
     }
   </style>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Google Maps JS API -->
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyATG0N_aygLOAoWYUT1bktNDrzIaTabRck&libraries=places"></script>
+
 </head>
 <body>
   <header>
@@ -74,117 +89,101 @@
   <div class="container">
     <div class="form-group">
       <label for="start">Startadresse:</label>
-      <input type="text" id="start" placeholder="Bitte eintragen">
+      <input type="text" id="start" placeholder="Bitte eintragen" autocomplete="off" />
+      <div id="start-suggestions" style="position:relative;"></div>
     </div>
 
     <div class="form-group">
       <label for="ziel">Zieladresse:</label>
-      <input type="text" id="ziel" placeholder="Bitte eintragen">
+      <input type="text" id="ziel" placeholder="Bitte eintragen" autocomplete="off" />
+      <div id="ziel-suggestions" style="position:relative;"></div>
     </div>
 
     <div class="form-group">
-      <label for="fahrer">Fahrer:</label>
-      <input list="fahrer-list" id="fahrer" placeholder="Bitte eintragen">
+      <label for="fahrer">Fahrer auswählen oder anlegen:</label>
+      <input type="text" id="fahrer" placeholder="Bitte eintragen" autocomplete="off" list="fahrer-list" />
       <datalist id="fahrer-list">
-        <option value="Benedikt Beyer">
-        <option value="Konrad Müller">
-        <option value="Anna Schäfer">
+        <option value="Benedikt Beyer"></option>
       </datalist>
     </div>
 
     <div class="form-group">
       <label for="auto">Auto:</label>
-      <input type="text" id="auto" placeholder="Bitte eintragen">
+      <input type="text" id="auto" placeholder="Bitte eintragen" autocomplete="off" />
     </div>
 
     <div class="form-group">
       <label for="baujahr">Baujahr:</label>
-      <input type="number" id="baujahr" min="1900" max="2099" placeholder="Bitte eintragen">
+      <input type="number" id="baujahr" min="1900" max="2099" placeholder="Bitte eintragen" />
     </div>
 
     <div class="form-group">
       <label>Kraftstoff:</label>
       <div class="fuel-options">
-        <label><input type="radio" name="kraftstoff" value="benzin"> Benzin</label>
-        <label><input type="radio" name="kraftstoff" value="diesel"> Diesel</label>
-        <label><input type="radio" name="kraftstoff" value="elektro"> Elektro</label>
-        <label><input type="radio" name="kraftstoff" value="hybrid"> Hybrid</label>
+        <label><input type="radio" name="kraftstoff" value="benzin" /> Benzin</label>
+        <label><input type="radio" name="kraftstoff" value="diesel" /> Diesel</label>
+        <label><input type="radio" name="kraftstoff" value="elektro" /> Elektro</label>
+        <label><input type="radio" name="kraftstoff" value="hybrid" /> Hybrid</label>
       </div>
     </div>
 
-    <button onclick="berechneFahrt()">Berechnen</button>
+    <div class="form-group">
+      <button id="berechnen">Berechnen</button>
+    </div>
 
     <div id="result"></div>
+
     <div id="map"></div>
   </div>
 
   <script>
     const ORS_API_KEY = "5b3ce3597851110001cf6248bd1c9d31486f44c6bb3dab1d5f08318a";
-    let map, routeLayer;
 
-    document.getElementById("fahrer").addEventListener("input", function () {
-      if (this.value === "Benedikt Beyer") {
+    // Google Maps Autocomplete
+    let autocompleteStart, autocompleteZiel;
+    function initAutocomplete() {
+      autocompleteStart = new google.maps.places.Autocomplete(document.getElementById("start"), { types: ["address"] });
+      autocompleteZiel = new google.maps.places.Autocomplete(document.getElementById("ziel"), { types: ["address"] });
+    }
+
+    window.onload = () => {
+      initAutocomplete();
+      bindEvents();
+      initMap();
+    };
+
+    // Fahrer -> Auto und Baujahr automatisch ausfüllen
+    document.getElementById("fahrer").addEventListener("input", () => {
+      const fahrer = document.getElementById("fahrer").value.trim().toLowerCase();
+      if (fahrer === "benedikt beyer") {
         document.getElementById("auto").value = "VW Golf";
-        document.getElementById("baujahr").value = "1997";
+        document.getElementById("baujahr").value = 1997;
       }
     });
 
-    async function berechneFahrt() {
-      const start = document.getElementById("start").value;
-      const ziel = document.getElementById("ziel").value;
-      const fahrer = document.getElementById("fahrer").value;
-      const auto = document.getElementById("auto").value;
-      const baujahr = parseInt(document.getElementById("baujahr").value);
-      const kraftstoff = document.querySelector('input[name="kraftstoff"]:checked')?.value;
+    // Map-Variablen
+    let map, directionsRenderer;
 
-      if (!start || !ziel || !auto || !baujahr || !kraftstoff) {
-        alert("Bitte alle Felder ausfüllen.");
-        return;
-      }
-
-      try {
-        const coordsStart = await getCoords(start);
-        const coordsZiel = await getCoords(ziel);
-
-        const res = await fetch("https://api.openrouteservice.org/v2/directions/driving-car/geojson", {
-          method: "POST",
-          headers: {
-            "Authorization": ORS_API_KEY,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            coordinates: [coordsStart, coordsZiel]
-          })
-        });
-        const data = await res.json();
-        const distKm = data.features[0].properties.summary.distance / 1000;
-        const durationMin = data.features[0].properties.summary.duration / 60;
-
-        const pauschale = getPauschale(kraftstoff, baujahr);
-        const fahrerlohn = fahrer.toLowerCase().includes("benedikt") ? 12.7 : 0;
-        const spritkosten = (distKm * pauschale).toFixed(2);
-        const lohnkosten = (fahrerlohn * (durationMin / 60)).toFixed(2);
-        const gesamt = (parseFloat(spritkosten) + parseFloat(lohnkosten)).toFixed(2);
-
-        document.getElementById("result").innerHTML = `
-          <p><strong>Strecke:</strong> ${distKm.toFixed(1)} km</p>
-          <p><strong>Dauer:</strong> ${durationMin.toFixed(0)} Minuten</p>
-          <p><strong>Spritkosten:</strong> ${spritkosten} €</p>
-          <p><strong>Fahrerlohn:</strong> ${lohnkosten} €</p>
-          <p><strong>Gesamtkosten:</strong> ${gesamt} €</p>
-        `;
-
-        zeigeKarte(data, coordsStart);
-      } catch (err) {
-        alert("Fehler bei der Berechnung: " + err.message);
-      }
+    function initMap() {
+      map = new google.maps.Map(document.getElementById("map"), {
+        center: { lat: 51.1657, lng: 10.4515 }, // Deutschland Mitte
+        zoom: 6,
+      });
+      directionsRenderer = new google.maps.DirectionsRenderer({ suppressMarkers: false });
+      directionsRenderer.setMap(map);
     }
 
     async function getCoords(address) {
-      const res = await fetch(`https://api.openrouteservice.org/geocode/search?api_key=${ORS_API_KEY}&text=${encodeURIComponent(address)}`);
+      if (!address || address.length < 5) throw new Error("Adresse muss mindestens 5 Zeichen haben");
+
+      const url = `https://api.openrouteservice.org/geocode/search?api_key=${ORS_API_KEY}&text=${encodeURIComponent(address)}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Fehler bei Geokodierung");
+
       const data = await res.json();
-      if (!data.features || data.features.length === 0) throw new Error("Adresse nicht gefunden.");
-      return data.features[0].geometry.coordinates;
+      if (!data.features || data.features.length === 0) throw new Error("Adresse nicht gefunden");
+
+      return data.features[0].geometry.coordinates; // [lng, lat]
     }
 
     function getPauschale(kraftstoff, baujahr) {
@@ -194,24 +193,93 @@
       return baujahr < 2000 ? 0.30 : 0.28;
     }
 
-    function zeigeKarte(geojson, centerCoords) {
-      if (!map) {
-        map = L.map("map").setView([centerCoords[1], centerCoords[0]], 12);
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          attribution: '&copy; OpenStreetMap'
-        }).addTo(map);
+    document.getElementById("berechnen").addEventListener("click", async () => {
+      const start = document.getElementById("start").value.trim();
+      const ziel = document.getElementById("ziel").value.trim();
+      const fahrer = document.getElementById("fahrer").value.trim();
+      const auto = document.getElementById("auto").value.trim();
+      const baujahr = parseInt(document.getElementById("baujahr").value);
+      const kraftstoff = document.querySelector('input[name="kraftstoff"]:checked')?.value;
+
+      if (!start || !ziel || !auto || !baujahr || !kraftstoff) {
+        alert("Bitte alle Felder ausfüllen.");
+        return;
       }
 
-      if (routeLayer) {
-        routeLayer.remove();
+      try {
+        // Koordinaten holen
+        const coordsStart = await getCoords(start); // [lng, lat]
+        const coordsZiel = await getCoords(ziel);
+
+        // Route von ORS anfragen
+        const body = {
+          coordinates: [coordsStart, coordsZiel],
+          format: "geojson"
+        };
+
+        const response = await fetch("https://api.openrouteservice.org/v2/directions/driving-car", {
+          method: "POST",
+          headers: {
+            "Authorization": ORS_API_KEY,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(body)
+        });
+
+        if (!response.ok) throw new Error("Fehler bei der Routenberechnung");
+
+        const data = await response.json();
+
+        // Route und Distanz auswerten
+        if (!data.routes || !data.routes[0]) throw new Error("Keine Route gefunden");
+
+        const route = data.routes[0];
+        const distKm = route.summary.distance / 1000;
+        const durationMin = route.summary.duration / 60;
+
+        // Kosten berechnen
+        const pauschale = getPauschale(kraftstoff, baujahr);
+        const fahrerlohn = fahrer.toLowerCase().includes("benedikt") ? 12.7 : 0;
+        const spritkosten = (distKm * pauschale).toFixed(2);
+        const lohnkosten = (fahrerlohn * (durationMin / 60)).toFixed(2);
+        const gesamt = (parseFloat(spritkosten) + parseFloat(lohnkosten)).toFixed(2);
+
+        document.getElementById("result").innerHTML = `
+          <p><strong>Distanz:</strong> ${distKm.toFixed(2)} km</p>
+          <p><strong>Dauer:</strong> ${durationMin.toFixed(1)} min</p>
+          <p><strong>Spritkosten:</strong> ${spritkosten} €</p>
+          <p><strong>Fahrerlohn:</strong> ${lohnkosten} €</p>
+          <p><strong>Gesamtkosten:</strong> ${gesamt} €</p>
+        `;
+
+        // Route auf Map darstellen mit Google Maps DirectionsService
+        const directionsService = new google.maps.DirectionsService();
+
+        directionsService.route({
+          origin: { lat: coordsStart[1], lng: coordsStart[0] },
+          destination: { lat: coordsZiel[1], lng: coordsZiel[0] },
+          travelMode: google.maps.TravelMode.DRIVING
+        }, (result, status) => {
+          if (status === google.maps.DirectionsStatus.OK) {
+            directionsRenderer.setDirections(result);
+          } else {
+            alert("Route konnte nicht auf der Karte angezeigt werden: " + status);
+          }
+        });
+
+      } catch (err) {
+        alert("Fehler: " + err.message);
       }
+    });
 
-      routeLayer = L.geoJSON(geojson, {
-        style: { color: "red", weight: 4 }
-      }).addTo(map);
-
-      map.fitBounds(routeLayer.getBounds());
-    }
+    // Optional: Wenn Fahrer "Benedikt Beyer" eingibt, auto + baujahr füllen
+    document.getElementById("fahrer").addEventListener("change", () => {
+      const fahrer = document.getElementById("fahrer").value.trim().toLowerCase();
+      if (fahrer === "benedikt beyer") {
+        document.getElementById("auto").value = "VW Golf";
+        document.getElementById("baujahr").value = 1997;
+      }
+    });
   </script>
 </body>
 </html>
