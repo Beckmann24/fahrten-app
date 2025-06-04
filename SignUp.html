@@ -19,7 +19,7 @@
       user-select: none;
     }
     .container {
-      max-width: 500px;
+      max-width: 600px;
       margin: 2rem auto;
       padding: 1rem 2rem 2rem 2rem;
       background-color: white;
@@ -35,7 +35,7 @@
       margin-top: 1rem;
       font-weight: bold;
     }
-    form input, form textarea {
+    form input, form select {
       width: 100%;
       padding: 0.5rem;
       margin-top: 0.25rem;
@@ -44,10 +44,20 @@
       font-size: 1rem;
       box-sizing: border-box;
     }
-    form textarea {
-      resize: vertical;
+    .inline-button {
+      margin-top: 0.5rem;
+      display: inline-block;
+      background-color: #000;
+      color: white;
+      padding: 0.3rem 0.6rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.9rem;
     }
-    button {
+    .inline-button:hover {
+      background-color: #222;
+    }
+    button[type="submit"] {
       margin-top: 1.5rem;
       width: 100%;
       padding: 0.75rem;
@@ -58,8 +68,27 @@
       border-radius: 4px;
       cursor: pointer;
     }
-    button:hover {
+    button[type="submit"]:hover {
       background-color: #222;
+    }
+    .entry-group {
+      margin-bottom: 1rem;
+      border: 1px solid #ddd;
+      padding: 0.5rem;
+      border-radius: 6px;
+      position: relative;
+    }
+    .remove-btn {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      background: #f44336;
+      color: white;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      padding: 0 6px;
     }
   </style>
 </head>
@@ -70,6 +99,7 @@
 <div class="container">
   <h1>Registrierung</h1>
   <form id="registerForm">
+
     <label for="vorname">Vorname</label>
     <input type="text" id="vorname" name="vorname" placeholder="Bitte eintragen" required />
 
@@ -85,11 +115,17 @@
     <label for="geburtsdatum">Geburtsdatum</label>
     <input type="date" id="geburtsdatum" name="geburtsdatum" required />
 
-    <label for="fuehrerscheinklassen">Führerscheinklassen (z.B. B, C, CE)</label>
-    <input type="text" id="fuehrerscheinklassen" name="fuehrerscheinklassen" placeholder="Bitte eintragen" />
+    <label>Führerscheinklassen</label>
+    <div id="fuehrerschein-container">
+      <!-- Dynamische Einträge hier -->
+    </div>
+    <button type="button" id="addFuehrerschein" class="inline-button">Weitere Führerscheinklasse hinzufügen</button>
 
-    <label for="autos">Autos (z.B. VW Golf, Audi A4)</label>
-    <textarea id="autos" name="autos" rows="3" placeholder="Bitte eintragen"></textarea>
+    <label>Autos</label>
+    <div id="autos-container">
+      <!-- Dynamische Einträge hier -->
+    </div>
+    <button type="button" id="addAuto" class="inline-button">Weiteres Auto hinzufügen</button>
 
     <button type="submit">Registrieren</button>
   </form>
@@ -98,7 +134,8 @@
 <!-- Firebase SDK -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
-  import { getFirestore, collection, addDoc, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-firestore.js";
+  import { getAuth, createUserWithEmailAndPassword, sendEmailVerification } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-auth.js";
+  import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyATG0N_aygLOAoWYUT1bktNDrzIaTabRck",
@@ -110,11 +147,115 @@
   };
 
   const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
   const db = getFirestore(app);
 
   document.getElementById("header").addEventListener("click", () => {
     window.location.href = "index.html";
   });
+
+  // Führerscheinklassen Optionen
+  const fuehrerscheinOptionen = ["A", "A1", "B", "BE", "C", "CE", "D", "DE", "L", "T"];
+
+  // Auto-Marken & Modelle Beispiel (kann erweitert werden)
+  const autoMarkenModelle = {
+    "VW": ["Golf", "Passat", "Polo", "Tiguan"],
+    "Audi": ["A3", "A4", "Q5", "Q7"],
+    "BMW": ["3er", "5er", "X3", "X5"],
+    "Mercedes": ["A-Klasse", "C-Klasse", "E-Klasse", "GLE"],
+    "Ford": ["Fiesta", "Focus", "Mustang"]
+  };
+
+  const fuehrerscheinContainer = document.getElementById("fuehrerschein-container");
+  const autosContainer = document.getElementById("autos-container");
+  const addFuehrerscheinBtn = document.getElementById("addFuehrerschein");
+  const addAutoBtn = document.getElementById("addAuto");
+
+  // Funktion Führerscheinklasse Dropdown erstellen
+  function createFuehrerscheinEntry() {
+    const div = document.createElement("div");
+    div.className = "entry-group";
+
+    const select = document.createElement("select");
+    select.name = "fuehrerscheinklassen";
+    fuehrerscheinOptionen.forEach(opt => {
+      const option = document.createElement("option");
+      option.value = opt;
+      option.textContent = opt;
+      select.appendChild(option);
+    });
+    div.appendChild(select);
+
+    if (fuehrerscheinContainer.children.length > 0) {
+      // Entfernen-Button nur bei 2. oder mehr
+      const removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.textContent = "X";
+      removeBtn.className = "remove-btn";
+      removeBtn.addEventListener("click", () => {
+        div.remove();
+      });
+      div.appendChild(removeBtn);
+    }
+
+    fuehrerscheinContainer.appendChild(div);
+  }
+
+  // Funktion Auto-Eintrag mit Marke & Modell Dropdown
+  function createAutoEntry() {
+    const div = document.createElement("div");
+    div.className = "entry-group";
+
+    // Marke Select
+    const markeSelect = document.createElement("select");
+    markeSelect.name = "auto-marke";
+    for (const marke in autoMarkenModelle) {
+      const option = document.createElement("option");
+      option.value = marke;
+      option.textContent = marke;
+      markeSelect.appendChild(option);
+    }
+    div.appendChild(markeSelect);
+
+    // Modell Select
+    const modellSelect = document.createElement("select");
+    modellSelect.name = "auto-modell";
+    div.appendChild(modellSelect);
+
+    // Funktion um Modelle an die Marke anzupassen
+    function updateModelle() {
+      const marke = markeSelect.value;
+      modellSelect.innerHTML = "";
+      autoMarkenModelle[marke].forEach(mod => {
+        const opt = document.createElement("option");
+        opt.value = mod;
+        opt.textContent = mod;
+        modellSelect.appendChild(opt);
+      });
+    }
+    markeSelect.addEventListener("change", updateModelle);
+    updateModelle(); // initial
+
+    if (autosContainer.children.length > 0) {
+      const removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.textContent = "X";
+      removeBtn.className = "remove-btn";
+      removeBtn.addEventListener("click", () => {
+        div.remove();
+      });
+      div.appendChild(removeBtn);
+    }
+
+    autosContainer.appendChild(div);
+  }
+
+  // Initialeinträge
+  createFuehrerscheinEntry();
+  createAutoEntry();
+
+  addFuehrerscheinBtn.addEventListener("click", createFuehrerscheinEntry);
+  addAutoBtn.addEventListener("click", createAutoEntry);
 
   document.getElementById("registerForm").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -124,8 +265,17 @@
     const email = document.getElementById("email").value.trim().toLowerCase();
     const passwort = document.getElementById("passwort").value;
     const geburtsdatum = document.getElementById("geburtsdatum").value;
-    const fuehrerscheinklassen = document.getElementById("fuehrerscheinklassen").value.trim();
-    const autos = document.getElementById("autos").value.trim();
+
+    // Führerscheinklassen sammeln
+    const fuehrerscheinklassen = Array.from(document.querySelectorAll('select[name="fuehrerscheinklassen"]'))
+      .map(sel => sel.value);
+
+    // Autos sammeln
+    const autos = Array.from(document.querySelectorAll('.entry-group')).filter(div => div.parentElement.id === "autos-container").map(div => {
+      const marke = div.querySelector('select[name="auto-marke"]').value;
+      const modell = div.querySelector('select[name="auto-modell"]').value;
+      return { marke, modell };
+    });
 
     if (!vorname || !nachname || !email || !passwort || !geburtsdatum) {
       alert("Bitte füllen Sie alle Pflichtfelder aus.");
@@ -133,33 +283,36 @@
     }
 
     try {
-      // Prüfen, ob E-Mail bereits registriert ist
-      const usersRef = collection(db, "users");
-      const q = query(usersRef, where("email", "==", email));
-      const querySnapshot = await getDocs(q);
+      // Registrierung bei Firebase Auth
+      const userCredential = await createUserWithEmailAndPassword(auth, email, passwort);
 
-      if (!querySnapshot.empty) {
-        alert("Diese E-Mail ist bereits registriert. Bitte melden Sie sich an.");
-        window.location.href = "SignIn.html";
-        return;
-      }
+      // E-Mail Verifizierung senden
+      await sendEmailVerification(userCredential.user);
 
-      // Neues User-Dokument anlegen
-      await addDoc(usersRef, {
+      // Daten in Firestore speichern (ohne Passwort!)
+      await addDoc(collection(db, "users"), {
+        uid: userCredential.user.uid,
         vorname,
         nachname,
         email,
-        passwort,  // Achtung: Passwort unverschlüsselt in DB – besser Firebase Auth verwenden
         geburtsdatum,
         fuehrerscheinklassen,
         autos,
         timestamp: new Date()
       });
 
-      alert("Registrierung erfolgreich!");
+      alert("Registrierung erfolgreich! Bitte bestätigen Sie Ihre E-Mail-Adresse über den Link in der Mail.");
       e.target.reset();
+      // Optional: Weiterleitung nach Registrierung
+      // window.location.href = "SignIn.html";
+
     } catch (error) {
-      alert("Fehler bei der Registrierung: " + error.message);
+      if (error.code === "auth/email-already-in-use") {
+        alert("Diese E-Mail ist bereits registriert. Bitte melden Sie sich an.");
+        window.location.href = "SignIn.html";
+      } else {
+        alert("Fehler bei der Registrierung: " + error.message);
+      }
     }
   });
 </script>
