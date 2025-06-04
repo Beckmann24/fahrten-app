@@ -47,6 +47,7 @@
     }
     .form-group {
       margin-bottom: 1rem;
+      position: relative;
     }
     .form-group label {
       display: block;
@@ -117,8 +118,8 @@
   <header>
     <h1>Beckmann Fahrten</h1>
     <div class="auth-links">
-      <a href="#" onclick="alert('Sign In clicked')">Sign In</a>
-      <a href="#" onclick="alert('Sign Up clicked')">Sign Up</a>
+      <a href="SignIn.html">Sign In</a>
+      <a href="SignUp.html">Sign Up</a>
     </div>
   </header>
 
@@ -145,7 +146,14 @@
 
     <div class="form-group">
       <label for="auto">Auto:</label>
-      <input type="text" id="auto" placeholder="Bitte eintragen" autocomplete="off" />
+      <input type="text" id="auto" placeholder="Bitte eintragen" autocomplete="off" list="auto-list" />
+      <datalist id="auto-list">
+        <option value="VW Golf"></option>
+        <option value="Audi A4"></option>
+        <option value="BMW 320i"></option>
+        <option value="Mercedes C-Klasse"></option>
+        <option value="Opel Astra"></option>
+      </datalist>
     </div>
 
     <div class="form-group">
@@ -161,6 +169,17 @@
         <label><input type="radio" name="kraftstoff" value="elektro" /> Elektro</label>
         <label><input type="radio" name="kraftstoff" value="hybrid" /> Hybrid</label>
       </div>
+    </div>
+
+    <div class="form-group">
+      <label for="trinkgeld">Trinkgeld für Fahrer:</label>
+      <select id="trinkgeld">
+        <option value="0">0%</option>
+        <option value="0.05">5%</option>
+        <option value="0.10">10%</option>
+        <option value="0.15">15%</option>
+        <option value="0.20">20%</option>
+      </select>
     </div>
 
     <div class="form-group">
@@ -276,82 +295,98 @@
       const auto = document.getElementById("auto").value.trim();
       const baujahr = parseInt(document.getElementById("baujahr").value);
       const kraftstoff = document.querySelector('input[name="kraftstoff"]:checked')?.value;
+      const trinkgeldPercent = parseFloat(document.getElementById("trinkgeld").value);
 
-      if (!start || !ziel || !auto || !baujahr || !kraftstoff) {
-        alert("Bitte alle Felder ausfüllen.");
-        return;
-      }
+      // Validierung
+      if (!start || start.length < 5) return alert("Bitte eine gültige Startadresse mit mindestens 5 Zeichen eingeben.");
+      if (!ziel || ziel.length < 5) return alert("Bitte eine gültige Zieladresse mit mindestens 5 Zeichen eingeben.");
+      if (!fahrer) return alert("Bitte den Fahrer eintragen.");
+      if (!auto) return alert("Bitte das Auto eintragen.");
+      if (!baujahr || baujahr < 1900 || baujahr > 2099) return alert("Bitte ein gültiges Baujahr eintragen.");
+      if (!kraftstoff) return alert("Bitte den Kraftstofftyp auswählen.");
 
       try {
-        // Koordinaten holen
-        const coordsStart = await getCoords(start); // [lng, lat]
-        const coordsZiel = await getCoords(ziel);
+        const startCoords = await getCoords(start); // [lng, lat]
+        const zielCoords = await getCoords(ziel);
 
-        // Route von ORS anfragen
+        // Route berechnen mit OpenRouteService
+        const directionsUrl = "https://api.openrouteservice.org/v2/directions/driving-car/geojson";
         const body = {
-          coordinates: [coordsStart, coordsZiel],
-          format: "geojson"
+          coordinates: [
+            [startCoords[0], startCoords[1]],
+            [zielCoords[0], zielCoords[1]],
+          ],
         };
-
-        const response = await fetch("https://api.openrouteservice.org/v2/directions/driving-car", {
+        const response = await fetch(directionsUrl, {
           method: "POST",
           headers: {
-            "Authorization": ORS_API_KEY,
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            Authorization: ORS_API_KEY,
           },
-          body: JSON.stringify(body)
+          body: JSON.stringify(body),
         });
 
         if (!response.ok) throw new Error("Fehler bei der Routenberechnung");
 
-        const data = await response.json();
+        const routeData = await response.json();
+        if (!routeData.features || routeData.features.length === 0)
+          throw new Error("Keine Route gefunden");
 
-        if (!data.routes || !data.routes[0]) throw new Error("Keine Route gefunden");
+        // Entfernung aus der Route extrahieren (in Meter)
+        const distMeter = routeData.features[0].properties.summary.distance;
+        const distKm = distMeter / 1000;
 
-        const route = data.routes[0];
-        const distKm = route.summary.distance / 1000;
-        const durationMin = route.summary.duration / 60;
-
-        // Kosten berechnen
+        // Kostenberechnung
         const pauschale = getPauschale(kraftstoff, baujahr);
-        const fahrerlohn = fahrer.toLowerCase().includes("benedikt") ? 12.7 : 0;
-        const spritkosten = (distKm * pauschale).toFixed(2);
-        const lohnkosten = (fahrerlohn * (durationMin / 60)).toFixed(2);
-        const gesamt = (parseFloat(spritkosten) + parseFloat(lohnkosten)).toFixed(2);
+        let kosten = distKm * pauschale;
 
-        document.getElementById("result").innerHTML = `
-          <p><strong>Distanz:</strong> ${distKm.toFixed(2)} km</p>
-          <p><strong>Dauer:</strong> ${durationMin.toFixed(1)} min</p>
-          <p><strong>Spritkosten:</strong> ${spritkosten} €</p>
-          <p><strong>Fahrerlohn:</strong> ${lohnkosten} €</p>
-          <p><strong>Gesamtkosten:</strong> ${gesamt} €</p>
-        `;
+        // Trinkgeld hinzufügen
+        kosten = kosten * (1 + trinkgeldPercent);
 
-        // Route auf Map darstellen mit Google Maps DirectionsService
+        // Route auf Google Maps anzeigen
+        if (!map) initMap();
+
+        // Google Maps DirectionsService für Route zeichnen
         const directionsService = new google.maps.DirectionsService();
 
-        directionsService.route({
-          origin: { lat: coordsStart[1], lng: coordsStart[0] },
-          destination: { lat: coordsZiel[1], lng: coordsZiel[0] },
-          travelMode: google.maps.TravelMode.DRIVING
-        }, (result, status) => {
-          if (status === google.maps.DirectionsStatus.OK) {
-            directionsRenderer.setDirections(result);
-          } else {
-            alert("Route konnte nicht auf der Karte angezeigt werden: " + status);
+        directionsService.route(
+          {
+            origin: { lat: startCoords[1], lng: startCoords[0] },
+            destination: { lat: zielCoords[1], lng: zielCoords[0] },
+            travelMode: google.maps.TravelMode.DRIVING,
+          },
+          (result, status) => {
+            if (status === "OK") {
+              directionsRenderer.setDirections(result);
+            } else {
+              alert("Fehler beim Anzeigen der Route: " + status);
+            }
           }
-        });
+        );
 
-      } catch (err) {
-        alert("Fehler: " + err.message);
+        // Ergebnis anzeigen
+        document.getElementById("result").innerHTML =
+          `<strong>Fahrer:</strong> ${fahrer}<br>` +
+          `<strong>Auto:</strong> ${auto} (${baujahr})<br>` +
+          `<strong>Start:</strong> ${start}<br>` +
+          `<strong>Ziel:</strong> ${ziel}<br>` +
+          `<strong>Distanz:</strong> ${distKm.toFixed(2)} km<br>` +
+          `<strong>Kosten (inkl. Trinkgeld):</strong> ${kosten.toFixed(2)} €`;
+
+      } catch (error) {
+        alert("Fehler: " + error.message);
       }
     });
 
-    // Setup Adressvorschläge für Start und Ziel
+    // Auto-Vorschläge filtern im datalist (Browserabhängig, daher kein eigenes JS nötig)
+
+    // Setup Autocomplete für Adressen
     setupSuggestions("start", "start-suggestions");
     setupSuggestions("ziel", "ziel-suggestions");
 
+    // Map initialisieren beim Laden
     window.onload = initMap;
+
   </script>
 </body>
 </html>
