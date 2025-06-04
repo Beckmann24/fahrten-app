@@ -1,184 +1,190 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Fahrtkostenrechner</title>
   <style>
-    body { font-family: sans-serif; padding: 20px; }
-    input, select, button { display: block; margin: 10px 0; }
-    .suggestions { background: #eee; padding: 5px; cursor: pointer; }
-    .suggestion { padding: 4px; }
-    .suggestion:hover { background: #ccc; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f4;
+    }
+    header {
+      background-color: #000;
+      color: white;
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 1.5rem;
+    }
+    .header-buttons button {
+      margin-left: 1rem;
+      padding: 0.5rem 1rem;
+      border: none;
+      background-color: #444;
+      color: white;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    .container {
+      max-width: 800px;
+      margin: 2rem auto;
+      padding: 1rem;
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .form-group {
+      margin-bottom: 1rem;
+    }
+    .form-group label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: bold;
+    }
+    .form-group input, .form-group select, .form-group button {
+      width: 100%;
+      padding: 0.5rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    .form-group .fuel-options {
+      display: flex;
+      gap: 1rem;
+    }
+    .form-group .fuel-options label {
+      font-weight: normal;
+    }
+    #result {
+      margin-top: 2rem;
+      padding: 1rem;
+      background-color: #eee;
+      border-radius: 4px;
+    }
   </style>
 </head>
 <body>
-  <h1>Fahrtkostenrechner</h1>
+  <header>
+    <h1>Beckmann Fahrten</h1>
+    <div class="header-buttons">
+      <button>Sign In</button>
+      <button>Sign Up</button>
+    </div>
+  </header>
 
-  <label>Startadresse:</label>
-  <input id="start" autocomplete="off">
-  <div id="start-suggestions"></div>
+  <div class="container">
+    <div class="form-group">
+      <label for="start">Startadresse:</label>
+      <input type="text" id="start" placeholder="z. B. Borkumstraße 1, Essen">
+    </div>
 
-  <label>Zieladresse:</label>
-  <input id="ziel" autocomplete="off">
-  <div id="ziel-suggestions"></div>
+    <div class="form-group">
+      <label for="ziel">Zieladresse:</label>
+      <input type="text" id="ziel" placeholder="z. B. Hespertal 4B, Velbert">
+    </div>
 
-  <label>Fahrer:</label>
-  <select id="fahrer-select"></select>
-  <button onclick="zeigeFahrerForm()">Neuer Fahrer</button>
+    <div class="form-group">
+      <label for="fahrer">Fahrer auswählen oder anlegen:</label>
+      <select id="fahrer">
+        <option value="benedikt">Benedikt Beyer</option>
+        <option value="neu">Neuen Fahrer anlegen</option>
+      </select>
+    </div>
 
-  <div id="fahrer-form" style="display:none;">
-    <input id="fahrer-name" placeholder="Name">
-    <input id="fahrer-lohn" placeholder="Stundenlohn (€)" type="number" step="0.01">
-    <button onclick="speichereFahrer()">Speichern</button>
+    <div class="form-group">
+      <label for="auto">Auto:</label>
+      <input type="text" id="auto" placeholder="z. B. VW Golf">
+    </div>
+
+    <div class="form-group">
+      <label for="baujahr">Baujahr:</label>
+      <input type="number" id="baujahr" min="1900" max="2099" placeholder="1997">
+    </div>
+
+    <div class="form-group">
+      <label>Kraftstoff:</label>
+      <div class="fuel-options">
+        <label><input type="radio" name="kraftstoff" value="benzin"> Benzin</label>
+        <label><input type="radio" name="kraftstoff" value="diesel"> Diesel</label>
+        <label><input type="radio" name="kraftstoff" value="elektro"> Elektro</label>
+        <label><input type="radio" name="kraftstoff" value="hybrid"> Hybrid</label>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <button onclick="berechneFahrt()">Berechnen</button>
+    </div>
+
+    <div id="result"></div>
   </div>
 
-  <label>Auto:</label>
-  <select id="auto-select"></select>
-  <input id="auto-baujahr" placeholder="Baujahr" type="number">
-  <label><input type="radio" name="kraftstoff" value="verbrenner"> Verbrenner</label>
-  <label><input type="radio" name="kraftstoff" value="diesel"> Diesel</label>
-  <label><input type="radio" name="kraftstoff" value="elektro"> Elektro</label>
-  <label><input type="radio" name="kraftstoff" value="hybrid"> Hybrid</label>
-
-  <button onclick="berechneFahrt()">Berechnen</button>
-
-  <div id="ergebnis"></div>
-
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getFirestore, collection, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyATG0N_aygLOAoWYUT1bktNDrzIaTabRck",
-      authDomain: "fahrtenapp-37b0a.firebaseapp.com",
-      projectId: "fahrtenapp-37b0a",
-      storageBucket: "fahrtenapp-37b0a.firebasestorage.app",
-      messagingSenderId: "1085975449829",
-      appId: "1:1085975449829:web:5f98837dba09907f97440c"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-
+  <script>
     const ORS_API_KEY = "5b3ce3597851110001cf6248bd1c9d31486f44c6bb3dab1d5f08318a";
 
-
-    const startInput = document.getElementById("start");
-    const zielInput = document.getElementById("ziel");
-    const startSug = document.getElementById("start-suggestions");
-    const zielSug = document.getElementById("ziel-suggestions");
-
-    startInput.addEventListener("input", () => autocomplete(startInput, startSug));
-    zielInput.addEventListener("input", () => autocomplete(zielInput, zielSug));
-
-    function autocomplete(input, container) {
-      container.innerHTML = "";
-      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${input.value}`)
-        .then(res => res.json())
-        .then(data => {
-          data.forEach(place => {
-            const div = document.createElement("div");
-            div.textContent = place.display_name;
-            div.classList.add("suggestion");
-            div.onclick = () => {
-              input.value = place.display_name;
-              container.innerHTML = "";
-              input.dataset.lat = place.lat;
-              input.dataset.lon = place.lon;
-            };
-            container.appendChild(div);
-          });
-        });
-    }
-
-    async function ladeFahrer() {
-      const select = document.getElementById("fahrer-select");
-      const querySnapshot = await getDocs(collection(db, "fahrer"));
-      querySnapshot.forEach(doc => {
-        const opt = document.createElement("option");
-        opt.value = JSON.stringify({ id: doc.id, ...doc.data() });
-        opt.textContent = doc.data().name;
-        select.appendChild(opt);
-      });
-    }
-
-    async function ladeAutos() {
-      const select = document.getElementById("auto-select");
-      select.innerHTML = "";
-      const fahrerData = getSelectedFahrer();
-      if (!fahrerData || !fahrerData.autos) return;
-      fahrerData.autos.forEach(auto => {
-        const opt = document.createElement("option");
-        opt.textContent = `${auto.marke} (${auto.baujahr})`;
-        opt.value = JSON.stringify(auto);
-        select.appendChild(opt);
-      });
-    }
-
-    function getSelectedFahrer() {
-      const sel = document.getElementById("fahrer-select");
-      return JSON.parse(sel.value || null);
-    }
-
-    document.getElementById("fahrer-select").addEventListener("change", ladeAutos);
-
-    function zeigeFahrerForm() {
-      document.getElementById("fahrer-form").style.display = "block";
-    }
-
-    async function speichereFahrer() {
-      const name = document.getElementById("fahrer-name").value;
-      const lohn = parseFloat(document.getElementById("fahrer-lohn").value);
-      const neuerFahrer = { name, lohn, autos: [] };
-      await addDoc(collection(db, "fahrer"), neuerFahrer);
-      location.reload();
-    }
-
     async function berechneFahrt() {
-      const start = startInput.dataset;
-      const ziel = zielInput.dataset;
-      const fahrer = getSelectedFahrer();
-      const auto = JSON.parse(document.getElementById("auto-select").value || "{}");
-      const baujahr = parseInt(document.getElementById("auto-baujahr").value);
+      const start = document.getElementById("start").value;
+      const ziel = document.getElementById("ziel").value;
+      const fahrer = document.getElementById("fahrer").value;
+      const auto = document.getElementById("auto").value;
+      const baujahr = parseInt(document.getElementById("baujahr").value);
       const kraftstoff = document.querySelector('input[name="kraftstoff"]:checked')?.value;
 
-      const res = await fetch(`https://api.openrouteservice.org/v2/directions/driving-car?api_key=${ORS_API_KEY}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          coordinates: [
-            [parseFloat(start.lon), parseFloat(start.lat)],
-            [parseFloat(ziel.lon), parseFloat(ziel.lat)]
-          ]
-        })
-      });
+      if (!start || !ziel || !auto || !baujahr || !kraftstoff) {
+        alert("Bitte alle Felder ausfüllen.");
+        return;
+      }
 
-      const route = await res.json();
-      const distKm = route.features[0].properties.summary.distance / 1000;
-      const dauerMin = route.features[0].properties.summary.duration / 60;
+      try {
+        const response = await fetch("https://api.openrouteservice.org/v2/directions/driving-car", {
+          method: "POST",
+          headers: {
+            "Authorization": ORS_API_KEY,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            coordinates: [
+              await getCoords(start),
+              await getCoords(ziel)
+            ]
+          })
+        });
+        const data = await response.json();
+        const distKm = data.features[0].properties.summary.distance / 1000;
+        const durationMin = data.features[0].properties.summary.duration / 60;
 
-      const pauschale = ermittleKilometerPauschale(kraftstoff, baujahr);
-      const spritkosten = pauschale * distKm;
-      const fahrerlohn = (fahrer?.lohn || 0) * (dauerMin / 60);
-      const summe = spritkosten + fahrerlohn;
+        const pauschale = getPauschale(kraftstoff, baujahr);
+        const fahrerlohn = fahrer === "benedikt" ? 12.7 : 0;
+        const spritkosten = (distKm * pauschale).toFixed(2);
+        const lohnkosten = (fahrerlohn * (durationMin / 60)).toFixed(2);
+        const gesamt = (parseFloat(spritkosten) + parseFloat(lohnkosten)).toFixed(2);
 
-      document.getElementById("ergebnis").innerHTML = `
-        <p><strong>Distanz:</strong> ${distKm.toFixed(1)} km</p>
-        <p><strong>Dauer:</strong> ${dauerMin.toFixed(0)} Min</p>
-        <p><strong>Spritkosten:</strong> ${spritkosten.toFixed(2)} €</p>
-        <p><strong>Fahrerlohn:</strong> ${fahrerlohn.toFixed(2)} €</p>
-        <p><strong>Gesamt:</strong> <strong>${summe.toFixed(2)} €</strong></p>
-      `;
+        document.getElementById("result").innerHTML = `
+          <p><strong>Spritkosten:</strong> ${spritkosten} €</p>
+          <p><strong>Fahrerlohn:</strong> ${lohnkosten} €</p>
+          <p><strong>Gesamtkosten:</strong> ${gesamt} €</p>
+        `;
+      } catch (err) {
+        alert("Fehler bei der Routenberechnung: " + err);
+      }
     }
 
-    function ermittleKilometerPauschale(kraftstoff, baujahr) {
-      if (kraftstoff === "elektro") return 0.15;
-      if (kraftstoff === "diesel") return baujahr < 2010 ? 0.25 : 0.30;
-      if (kraftstoff === "hybrid") return 0.20;
-      return 0.30;
+    async function getCoords(address) {
+      const resp = await fetch(`https://api.openrouteservice.org/geocode/search?api_key=${ORS_API_KEY}&text=${encodeURIComponent(address)}`);
+      const data = await resp.json();
+      return data.features[0].geometry.coordinates;
     }
 
-    ladeFahrer();
+    function getPauschale(kraftstoff, baujahr) {
+      if (kraftstoff === "elektro") return 0.20;
+      if (kraftstoff === "hybrid") return 0.25;
+      if (kraftstoff === "diesel") return baujahr < 2000 ? 0.35 : 0.30;
+      return baujahr < 2000 ? 0.30 : 0.28;
+    }
   </script>
 </body>
 </html>
