@@ -53,6 +53,8 @@
       border-radius: 4px;
       cursor: pointer;
       font-size: 0.9rem;
+      border: none;
+      text-align: center;
     }
     .inline-button:hover {
       background-color: #222;
@@ -112,6 +114,10 @@
     <label for="passwort">Passwort</label>
     <input type="password" id="passwort" name="passwort" placeholder="Bitte eintragen" required />
 
+    <!-- Google Registrierungsbutton -->
+    <label>Oder mit Google registrieren</label>
+    <button type="button" id="googleRegisterBtn" class="inline-button" style="width: 100%;">Mit Google registrieren</button>
+
     <label for="geburtsdatum">Geburtsdatum</label>
     <input type="date" id="geburtsdatum" name="geburtsdatum" required />
 
@@ -133,9 +139,27 @@
 
 <!-- Firebase SDK -->
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
-  import { getAuth, createUserWithEmailAndPassword, sendEmailVerification } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-auth.js";
-  import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-firestore.js";
+  import { 
+    initializeApp 
+  } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
+
+  import { 
+    getAuth, 
+    createUserWithEmailAndPassword, 
+    sendEmailVerification, 
+    GoogleAuthProvider, 
+    signInWithPopup,
+    fetchSignInMethodsForEmail
+  } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-auth.js";
+
+  import { 
+    getFirestore, 
+    collection, 
+    addDoc, 
+    query, 
+    where, 
+    getDocs 
+  } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyATG0N_aygLOAoWYUT1bktNDrzIaTabRck",
@@ -149,6 +173,8 @@
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db = getFirestore(app);
+
+  const provider = new GoogleAuthProvider();
 
   document.getElementById("header").addEventListener("click", () => {
     window.location.href = "index.html";
@@ -257,6 +283,43 @@
   addFuehrerscheinBtn.addEventListener("click", createFuehrerscheinEntry);
   addAutoBtn.addEventListener("click", createAutoEntry);
 
+  // Google Registrierung / Anmeldung
+  document.getElementById("googleRegisterBtn").addEventListener("click", async () => {
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+      const email = user.email.toLowerCase();
+
+      // Prüfe, ob Nutzer schon in Firestore existiert (users collection)
+      const q = query(collection(db, "users"), where("email", "==", email));
+      const querySnapshot = await getDocs(q);
+
+      if (querySnapshot.empty) {
+        // Neuer Nutzer, Daten in Firestore speichern
+        await addDoc(collection(db, "users"), {
+          uid: user.uid,
+          vorname: user.displayName?.split(" ")[0] || "",
+          nachname: user.displayName?.split(" ").slice(1).join(" ") || "",
+          email: email,
+          geburtsdatum: "",    // Bei Google-Login kein Datum, kann Nutzer evtl. später eingeben
+          fuehrerscheinklassen: [],
+          autos: [],
+          timestamp: new Date(),
+          googleRegistered: true
+        });
+        alert("Registrierung mit Google erfolgreich!");
+        // Optional: Weiterleitung nach Registrierung
+        // window.location.href = "SignIn.html";
+      } else {
+        alert("Sie sind bereits registriert. Bitte melden Sie sich an.");
+        window.location.href = "SignIn.html";
+      }
+    } catch (error) {
+      alert("Fehler bei Google-Registrierung: " + error.message);
+    }
+  });
+
+  // Email/Passwort Registrierung
   document.getElementById("registerForm").addEventListener("submit", async (e) => {
     e.preventDefault();
 
@@ -266,11 +329,9 @@
     const passwort = document.getElementById("passwort").value;
     const geburtsdatum = document.getElementById("geburtsdatum").value;
 
-    // Führerscheinklassen sammeln
     const fuehrerscheinklassen = Array.from(document.querySelectorAll('select[name="fuehrerscheinklassen"]'))
       .map(sel => sel.value);
 
-    // Autos sammeln
     const autos = Array.from(document.querySelectorAll('.entry-group')).filter(div => div.parentElement.id === "autos-container").map(div => {
       const marke = div.querySelector('select[name="auto-marke"]').value;
       const modell = div.querySelector('select[name="auto-modell"]').value;
@@ -283,13 +344,19 @@
     }
 
     try {
-      // Registrierung bei Firebase Auth
+      // Prüfen, ob E-Mail bereits mit Google registriert ist (Login-Methoden)
+      const methods = await fetchSignInMethodsForEmail(auth, email);
+
+      if (methods.includes("google.com") && !methods.includes("password")) {
+        alert("Diese E-Mail ist bereits per Google registriert. Bitte melden Sie sich mit Google an.");
+        return;
+      }
+
+      // Registrierung mit E-Mail und Passwort
       const userCredential = await createUserWithEmailAndPassword(auth, email, passwort);
 
-      // E-Mail Verifizierung senden
       await sendEmailVerification(userCredential.user);
 
-      // Daten in Firestore speichern (ohne Passwort!)
       await addDoc(collection(db, "users"), {
         uid: userCredential.user.uid,
         vorname,
@@ -303,9 +370,6 @@
 
       alert("Registrierung erfolgreich! Bitte bestätigen Sie Ihre E-Mail-Adresse über den Link in der Mail.");
       e.target.reset();
-      // Optional: Weiterleitung nach Registrierung
-      // window.location.href = "SignIn.html";
-
     } catch (error) {
       if (error.code === "auth/email-already-in-use") {
         alert("Diese E-Mail ist bereits registriert. Bitte melden Sie sich an.");
