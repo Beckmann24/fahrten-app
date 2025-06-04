@@ -25,7 +25,7 @@
       margin-bottom: 0.3rem;
       font-weight: bold;
     }
-    input, select, button {
+    input, datalist, select, button {
       width: 100%;
       padding: 0.5rem;
       margin-top: 0.3rem;
@@ -51,20 +51,24 @@
 
     <div class="form-group">
       <label for="start">Startadresse:</label>
-      <input type="text" id="start" placeholder="Bitte eintragen">
+      <input type="text" id="start" placeholder="Bitte eintragen" list="startList">
+      <datalist id="startList"></datalist>
     </div>
 
     <div class="form-group">
       <label for="ziel">Zieladresse:</label>
-      <input type="text" id="ziel" placeholder="Bitte eintragen">
+      <input type="text" id="ziel" placeholder="Bitte eintragen" list="zielList">
+      <datalist id="zielList"></datalist>
     </div>
 
     <div class="form-group">
       <label for="fahrer">Fahrer:</label>
-      <select id="fahrer">
-        <option value="">Bitte auswählen</option>
-        <option value="Benedikt Beyer">Benedikt Beyer</option>
-      </select>
+      <input type="text" id="fahrer" placeholder="Bitte eintragen" list="fahrerList">
+      <datalist id="fahrerList">
+        <option value="Benedikt Beyer">
+        <option value="Max Mustermann">
+        <option value="Lisa Müller">
+      </datalist>
     </div>
 
     <div class="form-group">
@@ -98,13 +102,35 @@
   <script>
     const ORS_API_KEY = "5b3ce3597851110001cf6248bd1c9d31486f44c6bb3dab1d5f08318a";
 
-    document.getElementById("fahrer").addEventListener("change", function () {
+    async function fetchAddressSuggestions(query, listId) {
+      if (query.length < 5) return;
+      try {
+        const resp = await fetch(`https://api.openrouteservice.org/geocode/autocomplete?api_key=${ORS_API_KEY}&text=${encodeURIComponent(query)}`);
+        const data = await resp.json();
+        const list = document.getElementById(listId);
+        list.innerHTML = "";
+        data.features.forEach(f => {
+          const opt = document.createElement("option");
+          opt.value = f.properties.label;
+          list.appendChild(opt);
+        });
+      } catch (e) {
+        console.error("Adressvorschläge Fehler:", e);
+      }
+    }
+
+    document.getElementById("start").addEventListener("input", () => {
+      fetchAddressSuggestions(document.getElementById("start").value, "startList");
+    });
+
+    document.getElementById("ziel").addEventListener("input", () => {
+      fetchAddressSuggestions(document.getElementById("ziel").value, "zielList");
+    });
+
+    document.getElementById("fahrer").addEventListener("input", function () {
       if (this.value === "Benedikt Beyer") {
         document.getElementById("auto").value = "VW Golf";
         document.getElementById("baujahr").value = "1997";
-      } else {
-        document.getElementById("auto").value = "";
-        document.getElementById("baujahr").value = "";
       }
     });
 
