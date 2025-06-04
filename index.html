@@ -152,6 +152,7 @@
     };
 
     async function getCoords(address) {
+      // keine Anfrage, wenn zu kurz, nur Fehler beim Berechnen, nicht beim Tippen
       if (address.length < 3) {
         throw new Error("Adresse zu kurz, bitte mindestens 3 Zeichen eingeben.");
       }
@@ -223,20 +224,22 @@
         const durationMin = data.features[0].properties.summary.duration / 60;
 
         const pauschale = getPauschale(kraftstoff, baujahr);
-        const fahrerlohn = fahrer.toLowerCase() === "benedikt beyer" ? 12.7 : 0;
-        const spritkosten = (distKm * pauschale).toFixed(2);
-        const lohnkosten = (fahrerlohn * (durationMin / 60)).toFixed(2);
-        const gesamt = (parseFloat(spritkosten) + parseFloat(lohnkosten)).toFixed(2);
+        const kosten = distKm * pauschale;
 
-        document.getElementById("result").innerHTML = `
-          <p><strong>Spritkosten:</strong> ${spritkosten} €</p>
-          <p><strong>Fahrerlohn:</strong> ${lohnkosten} €</p>
-          <p><strong>Gesamtkosten:</strong> ${gesamt} €</p>
-          <p><strong>Distanz:</strong> ${distKm.toFixed(2)} km</p>
-          <p><strong>Dauer:</strong> ${durationMin.toFixed(1)} Minuten</p>
+        const resultEl = document.getElementById("result");
+        resultEl.innerHTML = `
+          <strong>Fahrt von:</strong> ${start} <br>
+          <strong>nach:</strong> ${ziel} <br>
+          <strong>Entfernung:</strong> ${distKm.toFixed(2)} km<br>
+          <strong>Dauer:</strong> ${durationMin.toFixed(1)} Minuten<br>
+          <strong>Kosten:</strong> ${kosten.toFixed(2)} €<br>
+          <strong>Fahrer:</strong> ${fahrer || "-"} <br>
+          <strong>Auto:</strong> ${auto} (${baujahr})<br>
+          <strong>Kraftstoff:</strong> ${kraftstoff}
         `;
+
       } catch (err) {
-        alert("Hoppla, es ist ein Fehler aufgetreten:\n" + err.message);
+        alert(err.message);
       }
     }
   </script>
