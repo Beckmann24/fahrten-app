@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Beckmann Fahrten - Anmeldung</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f4;
+    }
+    header {
+      background-color: #000;
+      color: white;
+      padding: 1rem 2rem;
+      text-align: center;
+      cursor: pointer;
+      user-select: none;
+    }
+    .container {
+      max-width: 400px;
+      margin: 3rem auto;
+      padding: 2rem;
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+    form label {
+      display: block;
+      font-weight: bold;
+      margin-top: 1rem;
+    }
+    form input {
+      width: 100%;
+      padding: 0.5rem;
+      margin-top: 0.25rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 1rem;
+      box-sizing: border-box;
+    }
+    button[type="submit"] {
+      margin-top: 1.5rem;
+      width: 100%;
+      padding: 0.75rem;
+      font-size: 1rem;
+      border: none;
+      background-color: #000;
+      color: white;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button[type="submit"]:hover {
+      background-color: #222;
+    }
+    .message {
+      margin-top: 1rem;
+      color: red;
+      text-align: center;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <header id="header">Beckmann Fahrten</header>
+
+  <div class="container">
+    <h1>Anmeldung</h1>
+    <form id="signInForm">
+      <label for="email">E-Mail</label>
+      <input type="email" id="email" name="email" placeholder="E-Mail eingeben" required />
+
+      <label for="password">Passwort</label>
+      <input type="password" id="password" name="password" placeholder="Passwort eingeben" required />
+
+      <button type="submit">Anmelden</button>
+    </form>
+    <div class="message" id="message"></div>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, fetchSignInMethodsForEmail } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyATG0N_aygLOAoWYUT1bktNDrzIaTabRck",
+      authDomain: "fahrtenapp-37b0a.firebaseapp.com",
+      projectId: "fahrtenapp-37b0a",
+      storageBucket: "fahrtenapp-37b0a.appspot.com",
+      messagingSenderId: "1085975449829",
+      appId: "1:1085975449829:web:5f98837dba09907f97440c"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+    document.getElementById("header").addEventListener("click", () => {
+      window.location.href = "index.html";
+    });
+
+    const signInForm = document.getElementById("signInForm");
+    const messageDiv = document.getElementById("message");
+
+    signInForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      messageDiv.textContent = "";
+
+      const email = document.getElementById("email").value.trim().toLowerCase();
+      const password = document.getElementById("password").value;
+
+      try {
+        // Zuerst prüfen, ob die Email registriert ist
+        const methods = await fetchSignInMethodsForEmail(auth, email);
+        if (methods.length === 0) {
+          messageDiv.textContent = "Diese E-Mail ist nicht registriert. Sie werden zur Registrierung weitergeleitet.";
+          setTimeout(() => {
+            window.location.href = "SignUp.html";
+          }, 3000);
+          return;
+        }
+
+        // Anmeldung versuchen
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+
+        // Optional: Prüfen, ob E-Mail verifiziert ist
+        if (!userCredential.user.emailVerified) {
+          messageDiv.textContent = "Bitte bestätigen Sie Ihre E-Mail-Adresse, bevor Sie sich anmelden.";
+          await auth.signOut();
+          return;
+        }
+
+        // Erfolgreich eingeloggt, weiterleiten zum Dashboard
+        window.location.href = "Dashboard.html";
+
+      } catch (error) {
+        if (error.code === "auth/wrong-password") {
+          messageDiv.textContent = "Falsches Passwort. Bitte erneut versuchen.";
+        } else if (error.code === "auth/user-disabled") {
+          messageDiv.textContent = "Dieser Nutzer wurde deaktiviert.";
+        } else {
+          messageDiv.textContent = "Fehler bei der Anmeldung: " + error.message;
+        }
+      }
+    });
+  </script>
+</body>
+</html>
