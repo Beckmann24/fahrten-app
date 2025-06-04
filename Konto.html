@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Beckmann Fahrten - Konto</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f4;
+    }
+    header {
+      background-color: #000;
+      color: white;
+      padding: 1rem 2rem;
+      text-align: center;
+      cursor: pointer;
+      user-select: none;
+      font-size: 1.5rem;
+      font-weight: bold;
+    }
+    main {
+      max-width: 600px;
+      margin: 2rem auto;
+      background: white;
+      padding: 1.5rem 2rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h2 {
+      margin-top: 0;
+    }
+    label {
+      display: block;
+      margin-top: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    input[type="text"], input[type="email"], select {
+      width: 100%;
+      padding: 0.5rem;
+      margin-top: 0.3rem;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+    }
+    .allowed-emails-container {
+      margin-top: 0.5rem;
+    }
+    button {
+      margin-top: 1rem;
+      padding: 0.6rem 1.2rem;
+      font-size: 1rem;
+      cursor: pointer;
+      border: none;
+      border-radius: 4px;
+      background-color: #000;
+      color: white;
+    }
+    button:hover {
+      background-color: #222;
+    }
+    ul.vehicle-list {
+      list-style: none;
+      padding-left: 0;
+      margin-top: 1rem;
+    }
+    ul.vehicle-list li {
+      padding: 0.5rem;
+      border-bottom: 1px solid #ddd;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    ul.vehicle-list li:last-child {
+      border-bottom: none;
+    }
+    ul.vehicle-list button {
+      margin-left: 0.5rem;
+      background-color: #555;
+    }
+    ul.vehicle-list button:hover {
+      background-color: #333;
+    }
+    .message {
+      margin-top: 1rem;
+      font-weight: bold;
+      color: green;
+    }
+    .error {
+      color: red;
+    }
+  </style>
+</head>
+<body>
+  <header id="header">Beckmann Fahrten</header>
+
+  <main>
+    <section id="visibilitySection">
+      <h2>Sichtbarkeit als Fahrer</h2>
+      <label>
+        <input type="radio" name="visibility" value="all" checked /> Für alle sichtbar
+      </label>
+      <label>
+        <input type="radio" name="visibility" value="selected" /> Nur für ausgewählte E-Mail-Adressen sichtbar
+      </label>
+      <div class="allowed-emails-container" style="display:none;">
+        <label for="allowedEmailsInput">Erlaubte E-Mail-Adressen (kommagetrennt):</label>
+        <input type="text" id="allowedEmailsInput" placeholder="max@example.com, lara@example.com" />
+      </div>
+      <button id="saveVisibilityBtn">Sichtbarkeit speichern</button>
+      <div id="visibilityMessage" class="message"></div>
+    </section>
+
+    <hr style="margin:2rem 0;" />
+
+    <section id="vehiclesSection">
+      <h2>Fahrzeuge verwalten</h2>
+      <label for="brandSelect">Marke auswählen:</label>
+      <select id="brandSelect" >
+        <option value="">-- Marke wählen --</option>
+        <option value="Opel">Opel</option>
+        <option value="Citroen">Citroen</option>
+        <option value="Audi">Audi</option>
+        <option value="Porsche">Porsche</option>
+        <option value="Seat">Seat</option>
+        <option value="Skoda">Skoda</option>
+        <option value="VW">VW</option>
+        <option value="Dacia">Dacia</option>
+        <option value="Andere">Andere</option>
+      </select>
+
+      <label for="modelInput">Modell / Details:</label>
+      <input type="text" id="modelInput" placeholder="z.B. Astra 2018" />
+
+      <button id="addVehicleBtn">Fahrzeug hinzufügen</button>
+
+      <ul class="vehicle-list" id="vehicleList">
+        <!-- Fahrzeuge werden hier geladen -->
+      </ul>
+      <div id="vehiclesMessage" class="message"></div>
+    </section>
+  </main>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
+    import {
+      getAuth,
+      onAuthStateChanged,
+      signOut
+    } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-auth.js";
+    import {
+      getFirestore,
+      doc,
+      getDoc,
+      setDoc,
+      updateDoc,
+      arrayUnion,
+      arrayRemove
+    } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyATG0N_aygLOAoWYUT1bktNDrzIaTabRck",
+      authDomain: "fahrtenapp-37b0a.firebaseapp.com",
+      projectId: "fahrtenapp-37b0a",
+      storageBucket: "fahrtenapp-37b0a.appspot.com",
+      messagingSenderId: "1085975449829",
+      appId: "1:1085975449829:web:5f98837dba09907f97440c"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const header = document.getElementById("header");
+    header.addEventListener("click", () => {
+      window.location.href = "Dashboard.html";
+    });
+
+    const visibilityRadios = document.querySelectorAll('input[name="visibility"]');
+    const allowedEmailsContainer = document.querySelector(".allowed-emails-container");
+    const allowedEmailsInput = document.getElementById("allowedEmailsInput");
+    const saveVisibilityBtn = document.getElementById("saveVisibilityBtn");
+    const visibilityMessage = document.getElementById("visibilityMessage");
+
+    const brandSelect = document.getElementById("brandSelect");
+    const modelInput = document.getElementById("modelInput");
+    const addVehicleBtn = document.getElementById("addVehicleBtn");
+    const vehicleList = document.getElementById("vehicleList");
+    const vehiclesMessage = document.getElementById("vehiclesMessage");
+
+    let currentUser = null;
+    let userDocRef = null;
+    let userData = null;
+
+    // Sichtbarkeit UI toggeln
+    visibilityRadios.forEach(radio => {
+      radio.addEventListener("change", () => {
+        if (radio.value === "selected") {
+          allowedEmailsContainer.style.display = "block";
+        } else {
+          allowedEmailsContainer.style.display = "none";
+        }
+      });
+    });
+
+    // Lade Nutzerdaten & Fahrzeuge aus Firestore
+    async function loadUserData(uid) {
+      userDocRef = doc(db, "users", uid);
+      const docSnap = await getDoc(userDocRef);
+      if (docSnap.exists()) {
+        userData = docSnap.data();
+        // Sichtbarkeit anzeigen
+        if (userData.driverVisibility) {
+          const mode = userData.driverVisibility.mode || "all";
+          visibilityRadios.forEach(radio => {
+            radio.checked = (radio.value === mode);
+          });
+          if (mode === "selected") {
+            allowedEmailsContainer.style.display = "block";
+            allowedEmailsInput.value = (userData.driverVisibility.allowedEmails || []).join(", ");
+          } else {
+            allowedEmailsContainer.style.display = "none";
+            allowedEmailsInput.value = "";
+          }
+        }
+        // Fahrzeuge anzeigen
+        if (userData.vehicles && Array.isArray(userData.vehicles)) {
+          renderVehicles(userData.vehicles);
+        } else {
+          renderVehicles([]);
+        }
+      } else {
+        // Kein Dokument - Default anzeigen
+        visibilityRadios.forEach(radio => {
+          radio.checked = (radio.value === "all");
+        });
+        allowedEmailsContainer.style.display = "none";
+        allowedEmailsInput.value = "";
+        renderVehicles([]);
+      }
+    }
+
+    // Fahrzeuge in Liste anzeigen
+    function renderVehicles(vehicles) {
+      vehicleList.innerHTML = "";
+      if (vehicles.length === 0) {
+        vehicleList.innerHTML = "<li>Keine Fahrzeuge hinzugefügt.</li>";
+        return;
+      }
+      vehicles.forEach((v, index) => {
+        const li = document.createElement("li");
+        li.textContent = `${v.brand} - ${v.model}`;
+
+        const btnDel = document.createElement("button");
+        btnDel.textContent = "Löschen";
+        btnDel.title = "Fahrzeug löschen";
+        btnDel.addEventListener("click", () => deleteVehicle(index));
+
+        li.appendChild(btnDel);
+        vehicleList.appendChild(li);
+      });
+    }
+
+    // Fahrzeug löschen
+    async function deleteVehicle(index) {
+      if (!userData.vehicles) return;
+      userData.vehicles.splice(index, 1);
+      await updateDoc(userDocRef, { vehicles: userData.vehicles });
+      renderVehicles(userData.vehicles);
+      vehiclesMessage.textContent = "Fahrzeug gelöscht.";
+      setTimeout(() => { vehiclesMessage.textContent = ""; }, 3000);
+    }
+
+    // Fahrzeug hinzufügen
+    addVehicleBtn.addEventListener("click", async () => {
+      const brand = brandSelect.value;
+      const model = modelInput.value.trim();
+      vehiclesMessage.textContent = "";
+
+      if (!brand) {
+        vehiclesMessage.textContent = "Bitte eine Marke auswählen.";
+        vehiclesMessage.classList.add("error");
+        return;
+      }
+      if (!model) {
+        vehiclesMessage.textContent = "Bitte ein Modell/Details eingeben.";
+        vehiclesMessage.classList.add("error");
+        return;
+      }
+      vehiclesMessage.classList.remove("error");
+
+      const newVehicle = { brand, model };
+      if (!userData.vehicles) userData.vehicles = [];
+      userData.vehicles.push(newVehicle);
+      await updateDoc(userDocRef, { vehicles: userData.vehicles });
+      renderVehicles(userData.vehicles);
+
+      // Felder zurücksetzen
+      brandSelect.value = "";
+      modelInput.value = "";
+
+      vehiclesMessage.textContent = "Fahrzeug hinzugefügt!";
+      setTimeout(() => { vehiclesMessage.textContent = ""; }, 3000);
+    });
+
+    // Sichtbarkeit speichern
+    saveVisibilityBtn.addEventListener("click", async () => {
+      const selectedMode = document.querySelector('input[name="visibility"]:checked').value;
+      let allowedEmails = [];
+      if (selectedMode === "selected") {
+        allowedEmails = allowedEmailsInput.value
+          .split(",")
+          .map(e => e.trim().toLowerCase())
+          .filter(e => e.length > 0);
+      }
+      await updateDoc(userDocRef, {
+        driverVisibility: {
+          mode: selectedMode,
+          allowedEmails: allowedEmails
+        }
+      });
+      visibilityMessage.textContent = "Sichtbarkeitseinstellungen gespeichert!";
+      setTimeout(() => { visibilityMessage.textContent = ""; }, 3000);
+    });
+
+    // Auth Zustand überwachen
+    onAuthStateChanged(auth, user => {
+      if (user) {
+        currentUser = user;
+        loadUserData(user.uid);
+      } else {
+        // Wenn nicht angemeldet, zurück zur Anmeldung
+        window.location.href = "SignIn.html";
+      }
+    });
+
+  </script>
+</body>
+</html>
