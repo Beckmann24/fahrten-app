@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Fahrtkostenrechner</title>
   <style>
     body {
@@ -67,6 +67,7 @@
       padding: 1rem;
       background-color: #eee;
       border-radius: 4px;
+      min-height: 3rem;
     }
   </style>
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyATG0N_aygLOAoWYUT1bktNDrzIaTabRck&libraries=places"></script>
@@ -83,39 +84,42 @@
   <div class="container">
     <div class="form-group">
       <label for="start">Startadresse:</label>
-      <input type="text" id="start" placeholder="Bitte eintragen">
+      <input type="text" id="start" placeholder="Bitte eintragen" autocomplete="off" />
     </div>
 
     <div class="form-group">
       <label for="ziel">Zieladresse:</label>
-      <input type="text" id="ziel" placeholder="Bitte eintragen">
+      <input type="text" id="ziel" placeholder="Bitte eintragen" autocomplete="off" />
     </div>
 
     <div class="form-group">
       <label for="fahrer">Fahrer auswählen oder anlegen:</label>
-      <select id="fahrer">
-        <option value="" selected>Bitte eintragen</option>
-        <option value="Benedikt Beyer">Benedikt Beyer</option>
-      </select>
+      <input list="fahrer-list" id="fahrer" placeholder="Bitte eintragen" autocomplete="off" />
+      <datalist id="fahrer-list">
+        <option value="Benedikt Beyer"></option>
+      </datalist>
     </div>
 
     <div class="form-group">
       <label for="auto">Auto:</label>
-      <input type="text" id="auto" placeholder="Bitte eintragen">
+      <input list="auto-list" id="auto" placeholder="Bitte eintragen" autocomplete="off" />
+      <datalist id="auto-list">
+        <option value="VW Golf"></option>
+      </datalist>
     </div>
 
     <div class="form-group">
       <label for="baujahr">Baujahr:</label>
-      <input type="number" id="baujahr" min="1900" max="2099" placeholder="Bitte eintragen">
+      <input type="number" id="baujahr" min="1900" max="2099" placeholder="Bitte eintragen" />
     </div>
 
     <div class="form-group">
       <label>Kraftstoff:</label>
       <div class="fuel-options">
-        <label><input type="radio" name="kraftstoff" value="benzin"> Benzin</label>
-        <label><input type="radio" name="kraftstoff" value="diesel"> Diesel</label>
-        <label><input type="radio" name="kraftstoff" value="elektro"> Elektro</label>
-        <label><input type="radio" name="kraftstoff" value="hybrid"> Hybrid</label>
+        <label><input type="radio" name="kraftstoff" value="benzin" /> Benzin</label>
+        <label><input type="radio" name="kraftstoff" value="diesel" /> Diesel</label>
+        <label><input type="radio" name="kraftstoff" value="elektro" /> Elektro</label>
+        <label><input type="radio" name="kraftstoff" value="hybrid" /> Hybrid</label>
       </div>
     </div>
 
@@ -137,83 +141,25 @@
     window.onload = () => {
       initAutocomplete();
 
-      // Wenn Fahrer geändert wird, Auto und Baujahr ggf. setzen
-      document.getElementById("fahrer").addEventListener("change", function() {
-        if(this.value === "Benedikt Beyer") {
+      // Auto ausfüllen, wenn Fahrer Benedikt Beyer ausgewählt wird
+      const fahrerInput = document.getElementById("fahrer");
+      fahrerInput.addEventListener("input", () => {
+        if (fahrerInput.value.trim().toLowerCase() === "benedikt beyer") {
           document.getElementById("auto").value = "VW Golf";
           document.getElementById("baujahr").value = 1997;
-        } else {
-          // Bei anderem Fahrer Felder zurücksetzen (optional)
-          document.getElementById("auto").value = "";
-          document.getElementById("baujahr").value = "";
         }
       });
     };
 
-    async function berechneFahrt() {
-      const start = document.getElementById("start").value.trim();
-      const ziel = document.getElementById("ziel").value.trim();
-      const fahrer = document.getElementById("fahrer").value;
-      const auto = document.getElementById("auto").value.trim();
-      const baujahrStr = document.getElementById("baujahr").value.trim();
-      const baujahr = parseInt(baujahrStr, 10);
-      const kraftstoff = document.querySelector('input[name="kraftstoff"]:checked')?.value;
-
-      if (!start || !ziel || !auto || !baujahrStr || !kraftstoff) {
-        alert("Bitte alle Felder ausfüllen.");
-        return;
-      }
-
-      try {
-        const startCoords = await getCoords(start);
-        const zielCoords = await getCoords(ziel);
-
-        const response = await fetch("https://api.openrouteservice.org/v2/directions/driving-car", {
-          method: "POST",
-          headers: {
-            "Authorization": ORS_API_KEY,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            coordinates: [startCoords, zielCoords]
-          })
-        });
-
-        if (!response.ok) {
-          throw new Error(`Routing-API Fehler: ${response.status} ${response.statusText}`);
-        }
-
-        const data = await response.json();
-
-        if (!data.features || data.features.length === 0) {
-          throw new Error("Keine Route gefunden.");
-        }
-
-        const distKm = data.features[0].properties.summary.distance / 1000;
-        const durationMin = data.features[0].properties.summary.duration / 60;
-
-        const pauschale = getPauschale(kraftstoff, baujahr);
-        const fahrerlohn = fahrer.toLowerCase().includes("benedikt") ? 12.7 : 0;
-        const spritkosten = (distKm * pauschale).toFixed(2);
-        const lohnkosten = (fahrerlohn * (durationMin / 60)).toFixed(2);
-        const gesamt = (parseFloat(spritkosten) + parseFloat(lohnkosten)).toFixed(2);
-
-        document.getElementById("result").innerHTML = `
-          <p><strong>Spritkosten:</strong> ${spritkosten} €</p>
-          <p><strong>Fahrerlohn:</strong> ${lohnkosten} €</p>
-          <p><strong>Gesamtkosten:</strong> ${gesamt} €</p>
-        `;
-      } catch (err) {
-        alert("Hopla, es ist ein Fehler aufgetreten: " + err.message);
-      }
-    }
-
     async function getCoords(address) {
+      if (address.length < 3) {
+        throw new Error("Adresse zu kurz, bitte mindestens 3 Zeichen eingeben.");
+      }
       const resp = await fetch(`https://api.openrouteservice.org/geocode/search?api_key=${ORS_API_KEY}&text=${encodeURIComponent(address)}`);
       const data = await resp.json();
 
       if (!data.features || data.features.length === 0) {
-        throw new Error(`Adresse nicht gefunden: ${address}`);
+        throw new Error("Adresse nicht gefunden: " + address);
       }
 
       return data.features[0].geometry.coordinates;
@@ -224,6 +170,74 @@
       if (kraftstoff === "hybrid") return 0.25;
       if (kraftstoff === "diesel") return baujahr < 2000 ? 0.35 : 0.30;
       return baujahr < 2000 ? 0.30 : 0.28;
+    }
+
+    async function berechneFahrt() {
+      const start = document.getElementById("start").value.trim();
+      const ziel = document.getElementById("ziel").value.trim();
+      const fahrer = document.getElementById("fahrer").value.trim();
+      const auto = document.getElementById("auto").value.trim();
+      const baujahrStr = document.getElementById("baujahr").value.trim();
+      const baujahr = parseInt(baujahrStr, 10);
+      const kraftstoff = document.querySelector('input[name="kraftstoff"]:checked')?.value;
+
+      if (!start || !ziel || !auto || !baujahrStr || !kraftstoff) {
+        alert("Bitte alle Felder ausfüllen.");
+        return;
+      }
+      if (start.length < 3 || ziel.length < 3) {
+        alert("Bitte Start- und Zieladresse mit mindestens 3 Zeichen eingeben.");
+        return;
+      }
+      if (isNaN(baujahr) || baujahr < 1900 || baujahr > 2099) {
+        alert("Bitte ein gültiges Baujahr eingeben.");
+        return;
+      }
+
+      try {
+        const coordsStart = await getCoords(start);
+        const coordsZiel = await getCoords(ziel);
+
+        const response = await fetch("https://api.openrouteservice.org/v2/directions/driving-car", {
+          method: "POST",
+          headers: {
+            "Authorization": ORS_API_KEY,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            coordinates: [coordsStart, coordsZiel]
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`Routing API Fehler: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+
+        if (!data.features || data.features.length === 0) {
+          throw new Error("Keine Routendaten erhalten.");
+        }
+
+        const distKm = data.features[0].properties.summary.distance / 1000;
+        const durationMin = data.features[0].properties.summary.duration / 60;
+
+        const pauschale = getPauschale(kraftstoff, baujahr);
+        const fahrerlohn = fahrer.toLowerCase() === "benedikt beyer" ? 12.7 : 0;
+        const spritkosten = (distKm * pauschale).toFixed(2);
+        const lohnkosten = (fahrerlohn * (durationMin / 60)).toFixed(2);
+        const gesamt = (parseFloat(spritkosten) + parseFloat(lohnkosten)).toFixed(2);
+
+        document.getElementById("result").innerHTML = `
+          <p><strong>Spritkosten:</strong> ${spritkosten} €</p>
+          <p><strong>Fahrerlohn:</strong> ${lohnkosten} €</p>
+          <p><strong>Gesamtkosten:</strong> ${gesamt} €</p>
+          <p><strong>Distanz:</strong> ${distKm.toFixed(2)} km</p>
+          <p><strong>Dauer:</strong> ${durationMin.toFixed(1)} Minuten</p>
+        `;
+      } catch (err) {
+        alert("Hoppla, es ist ein Fehler aufgetreten:\n" + err.message);
+      }
     }
   </script>
 </body>
