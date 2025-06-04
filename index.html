@@ -23,6 +23,20 @@
       margin: 0;
       font-size: 1.5rem;
     }
+    .auth-links {
+      display: flex;
+      gap: 1rem;
+      font-size: 1rem;
+    }
+    .auth-links a {
+      color: white;
+      text-decoration: none;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .auth-links a:hover {
+      text-decoration: underline;
+    }
     .container {
       max-width: 800px;
       margin: 1rem auto 2rem;
@@ -75,28 +89,50 @@
       border-radius: 8px;
       border: 1px solid #ccc;
     }
+    /* Vorschlagsliste */
+    .suggestions {
+      border: 1px solid #ccc;
+      background: white;
+      position: absolute;
+      z-index: 1000;
+      max-height: 150px;
+      overflow-y: auto;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .suggestion-item {
+      padding: 5px 10px;
+      cursor: pointer;
+    }
+    .suggestion-item:hover {
+      background-color: #ddd;
+    }
   </style>
 
-  <!-- Google Maps JS API -->
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyATG0N_aygLOAoWYUT1bktNDrzIaTabRck&libraries=places"></script>
+  <!-- Google Maps JS API nur zum Anzeigen der Route -->
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyATG0N_aygLOAoWYUT1bktNDrzIaTabRck"></script>
 
 </head>
 <body>
   <header>
     <h1>Beckmann Fahrten</h1>
+    <div class="auth-links">
+      <a href="#" onclick="alert('Sign In clicked')">Sign In</a>
+      <a href="#" onclick="alert('Sign Up clicked')">Sign Up</a>
+    </div>
   </header>
 
   <div class="container">
-    <div class="form-group">
+    <div class="form-group" style="position:relative;">
       <label for="start">Startadresse:</label>
       <input type="text" id="start" placeholder="Bitte eintragen" autocomplete="off" />
-      <div id="start-suggestions" style="position:relative;"></div>
+      <div id="start-suggestions" class="suggestions" style="display:none;"></div>
     </div>
 
-    <div class="form-group">
+    <div class="form-group" style="position:relative;">
       <label for="ziel">Zieladresse:</label>
       <input type="text" id="ziel" placeholder="Bitte eintragen" autocomplete="off" />
-      <div id="ziel-suggestions" style="position:relative;"></div>
+      <div id="ziel-suggestions" class="suggestions" style="display:none;"></div>
     </div>
 
     <div class="form-group">
@@ -139,18 +175,58 @@
   <script>
     const ORS_API_KEY = "5b3ce3597851110001cf6248bd1c9d31486f44c6bb3dab1d5f08318a";
 
-    // Google Maps Autocomplete
-    let autocompleteStart, autocompleteZiel;
-    function initAutocomplete() {
-      autocompleteStart = new google.maps.places.Autocomplete(document.getElementById("start"), { types: ["address"] });
-      autocompleteZiel = new google.maps.places.Autocomplete(document.getElementById("ziel"), { types: ["address"] });
+    // Funktion um Adressvorschläge von OpenRouteService zu holen
+    async function fetchAddressSuggestions(query) {
+      if (query.length < 5) return [];
+      const url = `https://api.openrouteservice.org/geocode/autocomplete?api_key=${ORS_API_KEY}&text=${encodeURIComponent(query)}&size=5`;
+      try {
+        const res = await fetch(url);
+        if (!res.ok) return [];
+        const data = await res.json();
+        if (!data.features) return [];
+        return data.features.map(f => f.properties.label);
+      } catch {
+        return [];
+      }
     }
 
-    window.onload = () => {
-      initAutocomplete();
-      bindEvents();
-      initMap();
-    };
+    // Vorschläge anzeigen und Klick behandeln
+    function setupSuggestions(inputId, suggestionsId) {
+      const input = document.getElementById(inputId);
+      const suggBox = document.getElementById(suggestionsId);
+
+      input.addEventListener("input", async () => {
+        const val = input.value.trim();
+        if (val.length < 5) {
+          suggBox.style.display = "none";
+          suggBox.innerHTML = "";
+          return;
+        }
+        const suggestions = await fetchAddressSuggestions(val);
+        if (suggestions.length === 0) {
+          suggBox.style.display = "none";
+          suggBox.innerHTML = "";
+          return;
+        }
+        suggBox.innerHTML = suggestions.map(s => `<div class="suggestion-item">${s}</div>`).join("");
+        suggBox.style.display = "block";
+
+        // Klick auf Vorschlag
+        Array.from(suggBox.children).forEach(item => {
+          item.onclick = () => {
+            input.value = item.textContent;
+            suggBox.style.display = "none";
+          };
+        });
+      });
+
+      // Klick außerhalb schließt die Vorschlagsbox
+      document.addEventListener("click", (e) => {
+        if (!input.contains(e.target) && !suggBox.contains(e.target)) {
+          suggBox.style.display = "none";
+        }
+      });
+    }
 
     // Fahrer -> Auto und Baujahr automatisch ausfüllen
     document.getElementById("fahrer").addEventListener("input", () => {
@@ -176,7 +252,7 @@
     async function getCoords(address) {
       if (!address || address.length < 5) throw new Error("Adresse muss mindestens 5 Zeichen haben");
 
-      const url = `https://api.openrouteservice.org/geocode/search?api_key=${ORS_API_KEY}&text=${encodeURIComponent(address)}`;
+      const url = `https://api.openrouteservice.org/geocode/search?api_key=${ORS_API_KEY}&text=${encodeURIComponent(address)}&size=1`;
       const res = await fetch(url);
       if (!res.ok) throw new Error("Fehler bei Geokodierung");
 
@@ -230,7 +306,6 @@
 
         const data = await response.json();
 
-        // Route und Distanz auswerten
         if (!data.routes || !data.routes[0]) throw new Error("Keine Route gefunden");
 
         const route = data.routes[0];
@@ -272,14 +347,11 @@
       }
     });
 
-    // Optional: Wenn Fahrer "Benedikt Beyer" eingibt, auto + baujahr füllen
-    document.getElementById("fahrer").addEventListener("change", () => {
-      const fahrer = document.getElementById("fahrer").value.trim().toLowerCase();
-      if (fahrer === "benedikt beyer") {
-        document.getElementById("auto").value = "VW Golf";
-        document.getElementById("baujahr").value = 1997;
-      }
-    });
+    // Setup Adressvorschläge für Start und Ziel
+    setupSuggestions("start", "start-suggestions");
+    setupSuggestions("ziel", "ziel-suggestions");
+
+    window.onload = initMap;
   </script>
 </body>
 </html>
