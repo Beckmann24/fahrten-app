@@ -91,12 +91,55 @@
     .error {
       color: red;
     }
+    /* NEU: Styles für Beckmann-Fahrten Guthaben Bereich */
+    .balance-container {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    button.paypal-button {
+      background-color: #ffc439;
+      border: none;
+      padding: 1rem 2rem;
+      font-size: 1.25rem;
+      font-weight: bold;
+      cursor: pointer;
+      border-radius: 5px;
+      color: #111;
+      width: 100%;
+      max-width: 300px;
+      margin: 0 auto 1rem auto;
+      display: block;
+    }
+    .balance-display {
+      font-size: 1.25rem;
+      margin-bottom: 1rem;
+    }
+    .balance-explanation {
+      font-size: 0.9rem;
+      color: #444;
+      line-height: 1.4;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 0 1rem;
+    }
   </style>
 </head>
 <body>
   <header id="header">Beckmann Fahrten</header>
 
   <main>
+    <!-- NEUER Bereich Guthaben -->
+    <section class="balance-container">
+      <h2>Beckmann-Fahrten Konto aufladen</h2>
+      <button id="paypalButton" class="paypal-button">
+        Beckmann-Fahrten Konto aufladen
+      </button>
+      <div id="balanceDisplay" class="balance-display">Guthaben: 0,00 €</div>
+      <div class="balance-explanation">
+        Hier siehst du dein aktuelles Guthaben, mit dem du deine Fahrtkosten bezahlen kannst. Jede getätigte Fahrt wird automatisch von deinem Guthaben abgezogen. Um dein Konto aufzuladen, klicke auf den Button oben und überweise Geld über PayPal. Das Guthaben wird dann bei deinem nächsten Besuch hier aktualisiert.
+      </div>
+    </section>
+
     <section id="visibilitySection">
       <h2>Sichtbarkeit als Fahrer</h2>
       <label>
@@ -143,7 +186,7 @@
     </section>
   </main>
 
-  <!-- Firebase SDK -->
+  <!-- Firebase SDK & App-Logik -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
     import {
@@ -179,6 +222,43 @@
       window.location.href = "Dashboard.html";
     });
 
+    // --- Guthaben Verwaltung ---
+    const balanceKey = "beckmannFahrtenBalance";
+    const balanceDisplay = document.getElementById("balanceDisplay");
+    const paypalEmail = "jan.beckmann0309@gmail.com";
+    const paypalUrl = `https://www.paypal.com/donate?business=${encodeURIComponent(paypalEmail)}&currency_code=EUR`;
+    const paypalButton = document.getElementById("paypalButton");
+
+    function loadBalance() {
+      let bal = localStorage.getItem(balanceKey);
+      return bal ? parseFloat(bal) : 0;
+    }
+
+    function saveBalance(amount) {
+      localStorage.setItem(balanceKey, amount.toFixed(2));
+    }
+
+    function updateBalanceDisplay() {
+      const bal = loadBalance();
+      balanceDisplay.textContent = `Guthaben: ${bal.toFixed(2).replace('.', ',')} €`;
+    }
+
+    paypalButton.addEventListener("click", () => {
+      window.open(paypalUrl, "_blank");
+    });
+
+    // Beispiel-Funktion um Fahrtkosten abzuziehen, kannst du aufrufen, wenn Fahrt gebucht wurde
+    function deductAmount(amount) {
+      let currentBalance = loadBalance();
+      currentBalance -= amount;
+      if (currentBalance < 0) currentBalance = 0;
+      saveBalance(currentBalance);
+      updateBalanceDisplay();
+    }
+
+    updateBalanceDisplay();
+
+    // --- Sichtbarkeit & Fahrzeuge (wie bisher) ---
     const visibilityRadios = document.querySelectorAll('input[name="visibility"]');
     const allowedEmailsContainer = document.querySelector(".allowed-emails-container");
     const allowedEmailsInput = document.getElementById("allowedEmailsInput");
@@ -195,7 +275,6 @@
     let userDocRef = null;
     let userData = null;
 
-    // Sichtbarkeit UI toggeln
     visibilityRadios.forEach(radio => {
       radio.addEventListener("change", () => {
         if (radio.value === "selected") {
@@ -206,7 +285,6 @@
       });
     });
 
-    // Lade Nutzerdaten & Fahrzeuge aus Firestore
     async function loadUserData(uid) {
       userDocRef = doc(db, "users", uid);
       const docSnap = await getDoc(userDocRef);
@@ -233,7 +311,7 @@
           renderVehicles([]);
         }
       } else {
-        // Kein Dokument - Default anzeigen
+        // Default wenn kein Nutzer-Dokument
         visibilityRadios.forEach(radio => {
           radio.checked = (radio.value === "all");
         });
@@ -243,7 +321,6 @@
       }
     }
 
-    // Fahrzeuge in Liste anzeigen
     function renderVehicles(vehicles) {
       vehicleList.innerHTML = "";
       if (vehicles.length === 0) {
@@ -256,87 +333,107 @@
 
         const btnDel = document.createElement("button");
         btnDel.textContent = "Löschen";
-        btnDel.title = "Fahrzeug löschen";
-        btnDel.addEventListener("click", () => deleteVehicle(index));
+        btnDel.addEventListener("click", async () => {
+          await removeVehicle(index);
+        });
 
         li.appendChild(btnDel);
         vehicleList.appendChild(li);
       });
     }
 
-    // Fahrzeug löschen
-    async function deleteVehicle(index) {
-      if (!userData.vehicles) return;
+    async function removeVehicle(index) {
+      if (!userData || !userData.vehicles) return;
       userData.vehicles.splice(index, 1);
-      await updateDoc(userDocRef, { vehicles: userData.vehicles });
-      renderVehicles(userData.vehicles);
-      vehiclesMessage.textContent = "Fahrzeug gelöscht.";
-      setTimeout(() => { vehiclesMessage.textContent = ""; }, 3000);
+      try {
+        await updateDoc(userDocRef, { vehicles: userData.vehicles });
+        renderVehicles(userData.vehicles);
+        vehiclesMessage.textContent = "Fahrzeug entfernt.";
+        setTimeout(() => (vehiclesMessage.textContent = ""), 3000);
+      } catch (error) {
+        vehiclesMessage.textContent = "Fehler beim Entfernen.";
+        vehiclesMessage.classList.add("error");
+        setTimeout(() => {
+          vehiclesMessage.textContent = "";
+          vehiclesMessage.classList.remove("error");
+        }, 3000);
+      }
     }
 
-    // Fahrzeug hinzufügen
     addVehicleBtn.addEventListener("click", async () => {
-      const brand = brandSelect.value;
+      const brand = brandSelect.value.trim();
       const model = modelInput.value.trim();
-      vehiclesMessage.textContent = "";
-
       if (!brand) {
         vehiclesMessage.textContent = "Bitte eine Marke auswählen.";
         vehiclesMessage.classList.add("error");
+        setTimeout(() => {
+          vehiclesMessage.textContent = "";
+          vehiclesMessage.classList.remove("error");
+        }, 3000);
         return;
       }
       if (!model) {
-        vehiclesMessage.textContent = "Bitte ein Modell/Details eingeben.";
+        vehiclesMessage.textContent = "Bitte Modell / Details eingeben.";
         vehiclesMessage.classList.add("error");
+        setTimeout(() => {
+          vehiclesMessage.textContent = "";
+          vehiclesMessage.classList.remove("error");
+        }, 3000);
         return;
       }
-      vehiclesMessage.classList.remove("error");
-
-      const newVehicle = { brand, model };
       if (!userData.vehicles) userData.vehicles = [];
-      userData.vehicles.push(newVehicle);
-      await updateDoc(userDocRef, { vehicles: userData.vehicles });
-      renderVehicles(userData.vehicles);
-
-      // Felder zurücksetzen
-      brandSelect.value = "";
-      modelInput.value = "";
-
-      vehiclesMessage.textContent = "Fahrzeug hinzugefügt!";
-      setTimeout(() => { vehiclesMessage.textContent = ""; }, 3000);
-    });
-
-    // Sichtbarkeit speichern
-    saveVisibilityBtn.addEventListener("click", async () => {
-      const selectedMode = document.querySelector('input[name="visibility"]:checked').value;
-      let allowedEmails = [];
-      if (selectedMode === "selected") {
-        allowedEmails = allowedEmailsInput.value
-          .split(",")
-          .map(e => e.trim().toLowerCase())
-          .filter(e => e.length > 0);
+      userData.vehicles.push({ brand, model });
+      try {
+        await updateDoc(userDocRef, { vehicles: userData.vehicles });
+        renderVehicles(userData.vehicles);
+        vehiclesMessage.textContent = "Fahrzeug hinzugefügt.";
+        setTimeout(() => (vehiclesMessage.textContent = ""), 3000);
+        brandSelect.value = "";
+        modelInput.value = "";
+      } catch (error) {
+        vehiclesMessage.textContent = "Fehler beim Hinzufügen.";
+        vehiclesMessage.classList.add("error");
+        setTimeout(() => {
+          vehiclesMessage.textContent = "";
+          vehiclesMessage.classList.remove("error");
+        }, 3000);
       }
-      await updateDoc(userDocRef, {
-        driverVisibility: {
-          mode: selectedMode,
-          allowedEmails: allowedEmails
-        }
-      });
-      visibilityMessage.textContent = "Sichtbarkeitseinstellungen gespeichert!";
-      setTimeout(() => { visibilityMessage.textContent = ""; }, 3000);
     });
 
-    // Auth Zustand überwachen
+    saveVisibilityBtn.addEventListener("click", async () => {
+      const selectedMode = Array.from(visibilityRadios).find(r => r.checked).value;
+      let allowedEmailsArr = [];
+      if (selectedMode === "selected") {
+        const raw = allowedEmailsInput.value.trim();
+        allowedEmailsArr = raw ? raw.split(",").map(e => e.trim().toLowerCase()).filter(e => e.length > 0) : [];
+      }
+      try {
+        await updateDoc(userDocRef, {
+          driverVisibility: {
+            mode: selectedMode,
+            allowedEmails: allowedEmailsArr
+          }
+        });
+        visibilityMessage.textContent = "Sichtbarkeit gespeichert.";
+        setTimeout(() => (visibilityMessage.textContent = ""), 3000);
+      } catch (error) {
+        visibilityMessage.textContent = "Fehler beim Speichern.";
+        visibilityMessage.classList.add("error");
+        setTimeout(() => {
+          visibilityMessage.textContent = "";
+          visibilityMessage.classList.remove("error");
+        }, 3000);
+      }
+    });
+
     onAuthStateChanged(auth, user => {
       if (user) {
         currentUser = user;
         loadUserData(user.uid);
       } else {
-        // Wenn nicht angemeldet, zurück zur Anmeldung
-        window.location.href = "SignIn.html";
+        window.location.href = "login.html";
       }
     });
-
   </script>
 </body>
 </html>
