@@ -133,6 +133,7 @@
     <div class="form-group">
       <label for="fahrer">Fahrer:</label>
       <input type="text" id="fahrer" placeholder="Bitte eintragen" />
+      <button type="button" onclick="fahrgastUebernehmen()">Fahrername als Fahrgast eintragen</button>
     </div>
 
     <div class="form-group">
@@ -142,7 +143,7 @@
 
     <div class="form-group">
       <label for="auto">Auto:</label>
-      <input type="text" id="auto" placeholder="Bitte eintragen" />
+      <input type="text" id="auto" placeholder="Bitte eintragen" autocomplete="off" />
     </div>
 
     <div class="form-group">
@@ -183,6 +184,10 @@
   <script>
     const ORS_API_KEY = "5b3ce3597851110001cf6248bd1c9d31486f44c6bb3dab1d5f08318a";
 
+    function fahrgastUebernehmen() {
+      document.getElementById("fahrgast").value = document.getElementById("fahrer").value;
+    }
+
     async function fetchAddressSuggestions(query) {
       if (query.length < 5) return [];
       const url = `https://api.openrouteservice.org/geocode/autocomplete?api_key=${ORS_API_KEY}&text=${encodeURIComponent(query)}&size=5`;
@@ -197,7 +202,7 @@
 
       input.addEventListener("input", async () => {
         const val = input.value.trim();
-        if (val.length < 5) {
+        if (val.length < 3) {
           suggBox.style.display = "none";
           suggBox.innerHTML = "";
           return;
@@ -227,6 +232,7 @@
 
     setupSuggestions("start", "start-suggestions");
     setupSuggestions("ziel", "ziel-suggestions");
+    setupSuggestions("auto", "start-suggestions");
 
     document.getElementById("berechnen").addEventListener("click", async () => {
       const start = document.getElementById("start").value;
@@ -256,8 +262,8 @@
         const data = await res.json();
         const km = data.routes[0].summary.distance / 1000;
         const dauer = data.routes[0].summary.duration / 60;
-        const spritkosten = km * 0.3; // z.B. 30 Cent/km
-        const fahrergehalt = km * 0.2; // z.B. 20 Cent/km
+        const spritkosten = km * 0.3;
+        const fahrergehalt = km * 0.2;
         const gesamt = (spritkosten + fahrergehalt) * (1 + trinkgeldFaktor);
 
         document.getElementById("result").innerHTML = `
@@ -266,6 +272,18 @@
           <p>Spritgeld: ${spritkosten.toFixed(2)} €</p>
           <p>Fahrergehalt: ${fahrergehalt.toFixed(2)} €</p>
           <p>Gesamt inkl. Trinkgeld: ${gesamt.toFixed(2)} €</p>
+
+          <div class="form-group">
+            <label for="zahlung">Zahlungsart wählen:</label>
+            <select id="zahlung">
+              <option disabled selected>Bitte eintragen</option>
+              <option value="bar">Bar</option>
+              <option value="ueberweisung">Überweisung</option>
+              <option value="guthaben">Beckmann-Guthaben</option>
+            </select>
+            <small>Beckmann-Fahrten ist sicher: Der Fahrer wird direkt entlohnt. Der Fahrgast überweist an sein Beckmann-Fahrten-Konto.</small>
+          </div>
+
           <button onclick="alert('Bezahlen gestartet')">Bezahlen</button>
         `;
       } catch (e) {
