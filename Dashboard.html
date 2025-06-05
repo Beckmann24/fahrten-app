@@ -1,372 +1,69 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Fahrtkostenrechner mit Route</title>
-
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #f4f4f4;
-      margin: 0; padding: 0;
-    }
-    header {
-      background-color: #000;
-      color: white;
-      padding: 1rem 2rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    header h1 {
-      margin: 0;
-      font-size: 1.5rem;
-    }
-    .auth-links {
-      display: flex;
-      gap: 1rem;
-      font-size: 1rem;
-    }
-    .auth-links a {
-      color: white;
-      text-decoration: none;
-      font-weight: bold;
-      cursor: pointer;
-    }
-    .auth-links a:hover {
-      text-decoration: underline;
-    }
-    .container {
-      max-width: 800px;
-      margin: 1rem auto 2rem;
-      padding: 1rem;
-      background-color: white;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-    .form-group {
-      margin-bottom: 1rem;
-      position: relative;
-    }
-    .form-group label {
-      display: block;
-      font-weight: bold;
-      margin-bottom: 0.3rem;
-    }
-    input, select, button {
-      width: 100%;
-      padding: 0.4rem 0.6rem;
-      font-size: 1rem;
-      border-radius: 4px;
-      border: 1px solid #ccc;
-      box-sizing: border-box;
-    }
-    .fuel-options {
-      display: flex;
-      gap: 1rem;
-    }
-    .fuel-options label {
-      font-weight: normal;
-    }
-    button {
-      cursor: pointer;
-      background-color: #000;
-      color: white;
-      border: none;
-      padding: 0.6rem;
-      font-size: 1.1rem;
-      border-radius: 4px;
-    }
-    #result {
-      margin-top: 1rem;
-      padding: 1rem;
-      background-color: #eee;
-      border-radius: 4px;
-    }
-    #map {
-      height: 400px;
-      margin-top: 1rem;
-      border-radius: 8px;
-      border: 1px solid #ccc;
-    }
-    /* Vorschlagsliste */
-    .suggestions {
-      border: 1px solid #ccc;
-      background: white;
-      position: absolute;
-      z-index: 1000;
-      max-height: 150px;
-      overflow-y: auto;
-      width: 100%;
-      box-sizing: border-box;
-    }
-    .suggestion-item {
-      padding: 5px 10px;
-      cursor: pointer;
-    }
-    .suggestion-item:hover {
-      background-color: #ddd;
-    }
-  </style>
-
-  <!-- Google Maps JS API nur zum Anzeigen der Route -->
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyATG0N_aygLOAoWYUT1bktNDrzIaTabRck"></script>
-
+  <!-- ... (Kopf bleibt wie gehabt) ... -->
 </head>
 <body>
-  <header>
-    <h1>Beckmann Fahrten</h1>
-    <div class="auth-links">
-      <a href="Konto.html">Mein Konto</a>
-    </div>
-  </header>
+  <!-- ... (Header & Formular bleibt gleich) ... -->
 
+  <!-- Neue Sektion: Fahrerdetails -->
   <div class="container">
-    <div class="form-group" style="position:relative;">
-      <label for="start">Startadresse:</label>
-      <input type="text" id="start" placeholder="Bitte eintragen" autocomplete="off" />
-      <div id="start-suggestions" class="suggestions" style="display:none;"></div>
-    </div>
-
-    <div class="form-group" style="position:relative;">
-      <label for="ziel">Zieladresse:</label>
-      <input type="text" id="ziel" placeholder="Bitte eintragen" autocomplete="off" />
-      <div id="ziel-suggestions" class="suggestions" style="display:none;"></div>
-    </div>
-
-    <div class="form-group">
-      <label for="fahrer">Fahrer auswählen oder anlegen:</label>
-      <input type="text" id="fahrer" placeholder="Bitte eintragen" autocomplete="off" list="fahrer-list" />
-      <datalist id="fahrer-list">
-        <option value="Benedikt Beyer"></option>
-      </datalist>
-    </div>
-
-    <div class="form-group">
-      <label for="auto">Auto:</label>
-      <input type="text" id="auto" placeholder="Bitte eintragen" autocomplete="off" list="auto-list" />
-      <datalist id="auto-list">
-        <option value="VW Golf"></option>
-        <option value="Audi A4"></option>
-        <option value="BMW 320i"></option>
-        <option value="Mercedes C-Klasse"></option>
-        <option value="Opel Astra"></option>
-      </datalist>
-    </div>
-
-    <div class="form-group">
-      <label for="baujahr">Baujahr:</label>
-      <input type="number" id="baujahr" min="1900" max="2099" placeholder="Bitte eintragen" />
-    </div>
-
-    <div class="form-group">
-      <label>Kraftstoff:</label>
-      <div class="fuel-options">
-        <label><input type="radio" name="kraftstoff" value="benzin" /> Benzin</label>
-        <label><input type="radio" name="kraftstoff" value="diesel" /> Diesel</label>
-        <label><input type="radio" name="kraftstoff" value="elektro" /> Elektro</label>
-        <label><input type="radio" name="kraftstoff" value="hybrid" /> Hybrid</label>
-      </div>
-    </div>
-
-    <div class="form-group">
-      <label for="trinkgeld">Trinkgeld für Fahrer:</label>
-      <select id="trinkgeld">
-        <option value="0">0%</option>
-        <option value="0.05">5%</option>
-        <option value="0.10">10%</option>
-        <option value="0.15">15%</option>
-        <option value="0.20">20%</option>
+    <div id="fahrerdetails" style="display: none; margin-bottom: 1rem; background: #f9f9f9; padding: 1rem; border-radius: 6px; border: 1px solid #ccc;"></div>
+    <div id="zahlungsoptionen" style="display: none; margin-top: 1rem;">
+      <label for="zahlart"><strong>Zahlungsart auswählen:</strong></label>
+      <select id="zahlart">
+        <option value="bar">Bar</option>
+        <option value="ueberweisung">Überweisung</option>
+        <option value="paypal">PayPal</option>
+        <option value="beckmann">Beckmann-Fahrten Guthaben</option>
       </select>
+      <button style="margin-top: 1rem; width: 100%;">Jetzt bezahlen</button>
     </div>
-
-    <div class="form-group">
-      <button id="berechnen">Berechnen</button>
-    </div>
-
-    <div id="result"></div>
-
-    <div id="map"></div>
   </div>
 
   <script>
-    const ORS_API_KEY = "5b3ce3597851110001cf6248bd1c9d31486f44c6bb3dab1d5f08318a";
+    const fahrerInfos = {
+      "benedikt beyer": {
+        alter: 26,
+        autos: [
+          { name: "VW Golf", baujahr: 1997, kraftstoff: "Benzin" },
+          { name: "Audi A4", baujahr: 2012, kraftstoff: "Diesel" }
+        ]
+      },
+      // weitere Fahrer hier eintragen
+    };
 
-    async function fetchAddressSuggestions(query) {
-      if (query.length < 5) return [];
-      const url = `https://api.openrouteservice.org/geocode/autocomplete?api_key=${ORS_API_KEY}&text=${encodeURIComponent(query)}&size=5`;
-      try {
-        const res = await fetch(url);
-        if (!res.ok) return [];
-        const data = await res.json();
-        if (!data.features) return [];
-        return data.features.map(f => f.properties.label);
-      } catch {
-        return [];
-      }
-    }
+    const fahrerInput = document.getElementById("fahrer");
+    const detailsBox = document.getElementById("fahrerdetails");
+    const zahlungsbox = document.getElementById("zahlungsoptionen");
 
-    function setupSuggestions(inputId, suggestionsId) {
-      const input = document.getElementById(inputId);
-      const suggBox = document.getElementById(suggestionsId);
-
-      input.addEventListener("input", async () => {
-        const val = input.value.trim();
-        if (val.length < 5) {
-          suggBox.style.display = "none";
-          suggBox.innerHTML = "";
-          return;
-        }
-        const suggestions = await fetchAddressSuggestions(val);
-        if (suggestions.length === 0) {
-          suggBox.style.display = "none";
-          suggBox.innerHTML = "";
-          return;
-        }
-        suggBox.innerHTML = suggestions.map(s => `<div class="suggestion-item">${s}</div>`).join("");
-        suggBox.style.display = "block";
-
-        Array.from(suggBox.children).forEach(item => {
-          item.onclick = () => {
-            input.value = item.textContent;
-            suggBox.style.display = "none";
-          };
-        });
-      });
-
-      document.addEventListener("click", (e) => {
-        if (!input.contains(e.target) && !suggBox.contains(e.target)) {
-          suggBox.style.display = "none";
-        }
-      });
-    }
-
-    document.getElementById("fahrer").addEventListener("input", () => {
-      const fahrer = document.getElementById("fahrer").value.trim().toLowerCase();
-      if (fahrer === "benedikt beyer") {
-        document.getElementById("auto").value = "VW Golf";
-        document.getElementById("baujahr").value = 1997;
-      }
-    });
-
-    let map, directionsRenderer;
-
-    function initMap() {
-      map = new google.maps.Map(document.getElementById("map"), {
-        center: { lat: 51.1657, lng: 10.4515 },
-        zoom: 6,
-      });
-      directionsRenderer = new google.maps.DirectionsRenderer({ suppressMarkers: false });
-      directionsRenderer.setMap(map);
-    }
-
-    async function getCoords(address) {
-      if (!address || address.length < 5) throw new Error("Adresse muss mindestens 5 Zeichen haben");
-
-      const url = `https://api.openrouteservice.org/geocode/search?api_key=${ORS_API_KEY}&text=${encodeURIComponent(address)}&size=1`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("Fehler bei Geokodierung");
-
-      const data = await res.json();
-      if (!data.features || data.features.length === 0) throw new Error("Adresse nicht gefunden");
-
-      return data.features[0].geometry.coordinates;
-    }
-
-    function getPauschale(kraftstoff, baujahr) {
-      if (kraftstoff === "elektro") return 0.20;
-      if (kraftstoff === "hybrid") return 0.25;
-      if (kraftstoff === "diesel") return baujahr < 2000 ? 0.35 : 0.30;
-      return baujahr < 2000 ? 0.30 : 0.28;
-    }
-
-    document.getElementById("berechnen").addEventListener("click", async () => {
-      const start = document.getElementById("start").value.trim();
-      const ziel = document.getElementById("ziel").value.trim();
-      const fahrer = document.getElementById("fahrer").value.trim();
-      const auto = document.getElementById("auto").value.trim();
-      const baujahr = parseInt(document.getElementById("baujahr").value);
-      const kraftstoff = document.querySelector('input[name="kraftstoff"]:checked')?.value;
-      const trinkgeldPercent = parseFloat(document.getElementById("trinkgeld").value);
-
-      if (!start || start.length < 5) return alert("Bitte eine gültige Startadresse mit mindestens 5 Zeichen eingeben.");
-      if (!ziel || ziel.length < 5) return alert("Bitte eine gültige Zieladresse mit mindestens 5 Zeichen eingeben.");
-      if (!fahrer) return alert("Bitte den Fahrer eintragen.");
-      if (!auto) return alert("Bitte das Auto eintragen.");
-      if (!baujahr || baujahr < 1900 || baujahr > 2099) return alert("Bitte ein gültiges Baujahr eintragen.");
-      if (!kraftstoff) return alert("Bitte den Kraftstofftyp auswählen.");
-
-      try {
-        const startCoords = await getCoords(start);
-        const zielCoords = await getCoords(ziel);
-
-        const directionsUrl = "https://api.openrouteservice.org/v2/directions/driving-car/geojson";
-        const body = {
-          coordinates: [
-            [startCoords[0], startCoords[1]],
-            [zielCoords[0], zielCoords[1]],
-          ],
-        };
-        const response = await fetch(directionsUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: ORS_API_KEY,
-          },
-          body: JSON.stringify(body),
-        });
-
-        if (!response.ok) throw new Error("Fehler bei der Routenberechnung");
-
-        const routeData = await response.json();
-        if (!routeData.features || routeData.features.length === 0)
-          throw new Error("Keine Route gefunden");
-
-        const distMeter = routeData.features[0].properties.summary.distance;
-        const distKm = distMeter / 1000;
-
-        const pauschale = getPauschale(kraftstoff, baujahr);
-        let kosten = distKm * pauschale;
-
-        kosten = kosten * (1 + trinkgeldPercent);
-
-        if (!map) initMap();
-
-        const directionsService = new google.maps.DirectionsService();
-
-        directionsService.route(
-          {
-            origin: { lat: startCoords[1], lng: startCoords[0] },
-            destination: { lat: zielCoords[1], lng: zielCoords[0] },
-            travelMode: google.maps.TravelMode.DRIVING,
-          },
-          (result, status) => {
-            if (status === "OK") {
-              directionsRenderer.setDirections(result);
-            } else {
-              alert("Fehler beim Anzeigen der Route: " + status);
-            }
-          }
-        );
-
-        document.getElementById("result").innerHTML = `
-          <strong>Fahrer:</strong> ${fahrer} <br/>
-          <strong>Auto:</strong> ${auto} (${baujahr}) <br/>
-          <strong>Start:</strong> ${start} <br/>
-          <strong>Ziel:</strong> ${ziel} <br/>
-          <strong>Distanz:</strong> ${distKm.toFixed(1)} km <br/>
-          <strong>Kosten:</strong> ${kosten.toFixed(2)} € inkl. Trinkgeld (${(trinkgeldPercent*100).toFixed(0)}%) <br/>
-          <em>Pauschale pro km: ${pauschale.toFixed(2)} €</em>
+    fahrerInput.addEventListener("input", () => {
+      const name = fahrerInput.value.trim().toLowerCase();
+      if (fahrerInfos[name]) {
+        const f = fahrerInfos[name];
+        let autos = f.autos.map(a => `
+          <li>${a.name} (Baujahr ${a.baujahr}, ${a.kraftstoff})</li>
+        `).join("");
+        detailsBox.innerHTML = `
+          <strong>Alter des Fahrers:</strong> ${f.alter} Jahre<br/>
+          <strong>Registrierte Fahrzeuge:</strong>
+          <ul>${autos}</ul>
         `;
-      } catch (err) {
-        alert("Fehler: " + err.message);
+        detailsBox.style.display = "block";
+      } else {
+        detailsBox.style.display = "none";
       }
     });
 
-    // Autocomplete Suggestions initialisieren
-    setupSuggestions("start", "start-suggestions");
-    setupSuggestions("ziel", "ziel-suggestions");
+    const berechnenBtn = document.getElementById("berechnen");
+    berechnenBtn.addEventListener("click", () => {
+      // Warte kurz, ob vorher Fehler auftreten
+      setTimeout(() => {
+        if (document.getElementById("result").innerHTML !== "") {
+          zahlungsbox.style.display = "block";
+        }
+      }, 500);
+    });
   </script>
 </body>
 </html>
