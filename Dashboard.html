@@ -1,68 +1,163 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <!-- ... (Kopf bleibt wie gehabt) ... -->
+  <meta charset="UTF-8">
+  <title>Fahrtenabrechnung</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      padding: 2rem;
+    }
+    .container {
+      max-width: 600px;
+      margin: auto;
+      background: white;
+      padding: 2rem;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+    label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+    }
+    input, select {
+      width: 100%;
+      padding: 0.5rem;
+      font-size: 1rem;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+    #result {
+      margin-top: 1rem;
+      font-weight: bold;
+      color: #333;
+    }
+  </style>
 </head>
 <body>
-  <!-- ... (Header & Formular bleibt gleich) ... -->
-
-  <!-- Neue Sektion: Fahrerdetails -->
   <div class="container">
-    <div id="fahrerdetails" style="display: none; margin-bottom: 1rem; background: #f9f9f9; padding: 1rem; border-radius: 6px; border: 1px solid #ccc;"></div>
-    <div id="zahlungsoptionen" style="display: none; margin-top: 1rem;">
-      <label for="zahlart"><strong>Zahlungsart auswählen:</strong></label>
-      <select id="zahlart">
-        <option value="bar">Bar</option>
-        <option value="ueberweisung">Überweisung</option>
-        <option value="paypal">PayPal</option>
-        <option value="beckmann">Beckmann-Fahrten Guthaben</option>
-      </select>
-      <button style="margin-top: 1rem; width: 100%;">Jetzt bezahlen</button>
+    <h2>Fahrtenabrechnung</h2>
+    <div class="form-group">
+      <label for="fahrer">Fahrer (Vorname Nachname):</label>
+      <input list="fahrerListe" id="fahrer" placeholder="z. B. Benedikt Beyer">
+      <datalist id="fahrerListe">
+        <option value="Benedikt Beyer">
+        <option value="Jan Beckmann">
+      </datalist>
+      <div id="fahrer-info"></div>
     </div>
+
+    <div class="form-group">
+      <label for="auto">Fahrzeugmodell:</label>
+      <input type="text" id="auto">
+    </div>
+
+    <div class="form-group">
+      <label for="baujahr">Baujahr:</label>
+      <input type="number" id="baujahr" min="1980" max="2025">
+    </div>
+
+    <div class="form-group">
+      <label>Kraftstoff:</label>
+      <label><input type="radio" name="kraftstoff" value="benzin"> Benzin</label>
+      <label><input type="radio" name="kraftstoff" value="diesel"> Diesel</label>
+      <label><input type="radio" name="kraftstoff" value="hybrid"> Hybrid</label>
+      <label><input type="radio" name="kraftstoff" value="elektro"> Elektro</label>
+    </div>
+
+    <div class="form-group">
+      <label for="strecke">Gefahrene Strecke (km):</label>
+      <input type="number" id="strecke">
+    </div>
+
+    <div class="form-group">
+      <button id="berechnen">Kosten berechnen</button>
+    </div>
+
+    <div id="result"></div>
   </div>
 
   <script>
-    const fahrerInfos = {
+    const fahrerDaten = {
       "benedikt beyer": {
-        alter: 26,
+        alter: 27,
         autos: [
-          { name: "VW Golf", baujahr: 1997, kraftstoff: "Benzin" },
-          { name: "Audi A4", baujahr: 2012, kraftstoff: "Diesel" }
+          { modell: "VW Golf", baujahr: 1997, kraftstoff: "Benzin" },
+          { modell: "Audi A4", baujahr: 2012, kraftstoff: "Diesel" }
         ]
       },
-      // weitere Fahrer hier eintragen
+      "jan beckmann": {
+        alter: 17,
+        autos: [
+          { modell: "BMW 320i", baujahr: 2021, kraftstoff: "Hybrid" }
+        ]
+      }
     };
 
     const fahrerInput = document.getElementById("fahrer");
-    const detailsBox = document.getElementById("fahrerdetails");
-    const zahlungsbox = document.getElementById("zahlungsoptionen");
+    const fahrerInfoBox = document.createElement("div");
+    fahrerInfoBox.id = "fahrer-info-box";
+    fahrerInfoBox.style.marginTop = "0.5rem";
+    fahrerInput.parentElement.appendChild(fahrerInfoBox);
 
     fahrerInput.addEventListener("input", () => {
-      const name = fahrerInput.value.trim().toLowerCase();
-      if (fahrerInfos[name]) {
-        const f = fahrerInfos[name];
-        let autos = f.autos.map(a => `
-          <li>${a.name} (Baujahr ${a.baujahr}, ${a.kraftstoff})</li>
-        `).join("");
-        detailsBox.innerHTML = `
-          <strong>Alter des Fahrers:</strong> ${f.alter} Jahre<br/>
-          <strong>Registrierte Fahrzeuge:</strong>
-          <ul>${autos}</ul>
+      const eingabe = fahrerInput.value.trim().toLowerCase();
+      const daten = fahrerDaten[eingabe];
+      if (daten) {
+        fahrerInfoBox.innerHTML = `
+          <strong>Alter:</strong> ${daten.alter} Jahre<br>
+          <strong>Registrierte Fahrzeuge:</strong><br>
+          ${daten.autos.map(a => `&bull; ${a.modell} (${a.baujahr}, ${a.kraftstoff})`).join("<br>")}
         `;
-        detailsBox.style.display = "block";
+        const auto = daten.autos[0];
+        document.getElementById("auto").value = auto.modell;
+        document.getElementById("baujahr").value = auto.baujahr;
+        document.querySelectorAll('input[name="kraftstoff"]').forEach(r => {
+          r.checked = r.value.toLowerCase() === auto.kraftstoff.toLowerCase();
+        });
       } else {
-        detailsBox.style.display = "none";
+        fahrerInfoBox.innerHTML = "";
       }
     });
 
-    const berechnenBtn = document.getElementById("berechnen");
-    berechnenBtn.addEventListener("click", () => {
-      // Warte kurz, ob vorher Fehler auftreten
-      setTimeout(() => {
-        if (document.getElementById("result").innerHTML !== "") {
-          zahlungsbox.style.display = "block";
-        }
-      }, 500);
+    const bezahlungGruppe = document.createElement("div");
+    bezahlungGruppe.className = "form-group";
+    bezahlungGruppe.style.display = "none";
+    bezahlungGruppe.innerHTML = `
+      <label for="bezahlart">Bezahlart wählen:</label>
+      <select id="bezahlart">
+        <option value="bar">Bar</option>
+        <option value="überweisung">Überweisung</option>
+        <option value="paypal">PayPal</option>
+        <option value="beckmann">Beckmann-Fahrten Guthaben (sicher)</option>
+      </select>
+    `;
+    document.querySelector(".container").appendChild(bezahlungGruppe);
+
+    document.getElementById("berechnen").addEventListener("click", () => {
+      const strecke = parseFloat(document.getElementById("strecke").value);
+      const kraftstoff = document.querySelector('input[name="kraftstoff"]:checked')?.value;
+      const baujahr = parseInt(document.getElementById("baujahr").value);
+
+      if (isNaN(strecke) || !kraftstoff || isNaN(baujahr)) {
+        document.getElementById("result").innerHTML = "Bitte alle Felder korrekt ausfüllen.";
+        return;
+      }
+
+      let faktor = 0.3; // Standard
+
+      if (kraftstoff === "diesel") faktor = 0.35;
+      if (kraftstoff === "elektro") faktor = 0.2;
+      if (baujahr < 2000) faktor += 0.05;
+
+      const kosten = strecke * faktor;
+      document.getElementById("result").innerHTML = `Gesamtkosten: ${kosten.toFixed(2)} €`;
+      bezahlungGruppe.style.display = "block";
     });
   </script>
 </body>
