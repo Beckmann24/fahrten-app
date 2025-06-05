@@ -1,164 +1,242 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8">
-  <title>Fahrtenabrechnung</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Fahrtkostenrechner mit Route</title>
+
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: #f4f4f4;
-      padding: 2rem;
+      background-color: #f4f4f4;
+      margin: 0; padding: 0;
+    }
+    header {
+      background-color: #000;
+      color: white;
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 1.5rem;
+    }
+    .auth-links {
+      display: flex;
+      gap: 1rem;
+      font-size: 1rem;
+    }
+    .auth-links a {
+      color: white;
+      text-decoration: none;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .auth-links a:hover {
+      text-decoration: underline;
     }
     .container {
-      max-width: 600px;
-      margin: auto;
-      background: white;
-      padding: 2rem;
-      border-radius: 10px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      max-width: 800px;
+      margin: 1rem auto 2rem;
+      padding: 1rem;
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
     .form-group {
-      margin-bottom: 1.5rem;
+      margin-bottom: 1rem;
+      position: relative;
     }
-    label {
+    .form-group label {
       display: block;
       font-weight: bold;
-      margin-bottom: 0.5rem;
+      margin-bottom: 0.3rem;
     }
-    input, select {
+    input, select, button {
       width: 100%;
-      padding: 0.5rem;
+      padding: 0.4rem 0.6rem;
       font-size: 1rem;
-      border-radius: 5px;
+      border-radius: 4px;
       border: 1px solid #ccc;
+      box-sizing: border-box;
+    }
+    .fuel-options {
+      display: flex;
+      gap: 1rem;
+    }
+    .fuel-options label {
+      font-weight: normal;
+    }
+    button {
+      cursor: pointer;
+      background-color: #000;
+      color: white;
+      border: none;
+      padding: 0.6rem;
+      font-size: 1.1rem;
+      border-radius: 4px;
     }
     #result {
       margin-top: 1rem;
-      font-weight: bold;
-      color: #333;
+      padding: 1rem;
+      background-color: #eee;
+      border-radius: 4px;
+    }
+    #map {
+      height: 400px;
+      margin-top: 1rem;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+    }
+    .suggestions {
+      border: 1px solid #ccc;
+      background: white;
+      position: absolute;
+      z-index: 1000;
+      max-height: 150px;
+      overflow-y: auto;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .suggestion-item {
+      padding: 5px 10px;
+      cursor: pointer;
+    }
+    .suggestion-item:hover {
+      background-color: #ddd;
     }
   </style>
+
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyATG0N_aygLOAoWYUT1bktNDrzIaTabRck"></script>
 </head>
 <body>
+  <header>
+    <h1>Beckmann Fahrten</h1>
+    <div class="auth-links">
+      <a href="Konto.html">Mein Konto</a>
+    </div>
+  </header>
+
   <div class="container">
-    <h2>Fahrtenabrechnung</h2>
-    <div class="form-group">
-      <label for="fahrer">Fahrer (Vorname Nachname):</label>
-      <input list="fahrerListe" id="fahrer" placeholder="z. B. Benedikt Beyer">
-      <datalist id="fahrerListe">
-        <option value="Benedikt Beyer">
-        <option value="Jan Beckmann">
-      </datalist>
-      <div id="fahrer-info"></div>
+    <div class="form-group" style="position:relative;">
+      <label for="start">Startadresse:</label>
+      <input type="text" id="start" placeholder="Bitte eintragen" autocomplete="off" />
+      <div id="start-suggestions" class="suggestions" style="display:none;"></div>
+    </div>
+
+    <div class="form-group" style="position:relative;">
+      <label for="ziel">Zieladresse:</label>
+      <input type="text" id="ziel" placeholder="Bitte eintragen" autocomplete="off" />
+      <div id="ziel-suggestions" class="suggestions" style="display:none;"></div>
     </div>
 
     <div class="form-group">
-      <label for="auto">Fahrzeugmodell:</label>
-      <input type="text" id="auto">
+      <label for="fahrer">Fahrer auswählen oder anlegen:</label>
+      <input type="text" id="fahrer" placeholder="Bitte eintragen" autocomplete="off" list="fahrer-list" />
+      <datalist id="fahrer-list"></datalist>
+    </div>
+
+    <div class="form-group">
+      <label for="auto">Auto:</label>
+      <input type="text" id="auto" placeholder="Bitte eintragen" autocomplete="off" list="auto-list" />
+      <datalist id="auto-list">
+        <option value="VW Golf"></option>
+        <option value="Audi A4"></option>
+        <option value="BMW 320i"></option>
+        <option value="Mercedes C-Klasse"></option>
+        <option value="Opel Astra"></option>
+      </datalist>
     </div>
 
     <div class="form-group">
       <label for="baujahr">Baujahr:</label>
-      <input type="number" id="baujahr" min="1980" max="2025">
+      <input type="number" id="baujahr" placeholder="Bitte eintragen" min="1900" max="2099" />
     </div>
 
     <div class="form-group">
       <label>Kraftstoff:</label>
-      <label><input type="radio" name="kraftstoff" value="benzin"> Benzin</label>
-      <label><input type="radio" name="kraftstoff" value="diesel"> Diesel</label>
-      <label><input type="radio" name="kraftstoff" value="hybrid"> Hybrid</label>
-      <label><input type="radio" name="kraftstoff" value="elektro"> Elektro</label>
+      <div class="fuel-options">
+        <label><input type="radio" name="kraftstoff" value="benzin" /> Benzin</label>
+        <label><input type="radio" name="kraftstoff" value="diesel" /> Diesel</label>
+        <label><input type="radio" name="kraftstoff" value="elektro" /> Elektro</label>
+        <label><input type="radio" name="kraftstoff" value="hybrid" /> Hybrid</label>
+      </div>
     </div>
 
     <div class="form-group">
-      <label for="strecke">Gefahrene Strecke (km):</label>
-      <input type="number" id="strecke">
+      <label for="trinkgeld">Trinkgeld für Fahrer:</label>
+      <select id="trinkgeld">
+        <option value="" selected disabled>Bitte eintragen</option>
+        <option value="0">0%</option>
+        <option value="0.05">5%</option>
+        <option value="0.10">10%</option>
+        <option value="0.15">15%</option>
+        <option value="0.20">20%</option>
+      </select>
     </div>
 
     <div class="form-group">
-      <button id="berechnen">Kosten berechnen</button>
+      <button id="berechnen">Berechnen</button>
     </div>
 
     <div id="result"></div>
+    <div id="map"></div>
   </div>
 
   <script>
-    const fahrerDaten = {
-      "benedikt beyer": {
-        alter: 27,
-        autos: [
-          { modell: "VW Golf", baujahr: 1997, kraftstoff: "Benzin" },
-          { modell: "Audi A4", baujahr: 2012, kraftstoff: "Diesel" }
-        ]
-      },
-      "jan beckmann": {
-        alter: 17,
-        autos: [
-          { modell: "BMW 320i", baujahr: 2021, kraftstoff: "Hybrid" }
-        ]
+    const ORS_API_KEY = "5b3ce3597851110001cf6248bd1c9d31486f44c6bb3dab1d5f08318a";
+
+    async function fetchAddressSuggestions(query) {
+      if (query.length < 5) return [];
+      const url = `https://api.openrouteservice.org/geocode/autocomplete?api_key=${ORS_API_KEY}&text=${encodeURIComponent(query)}&size=5`;
+      try {
+        const res = await fetch(url);
+        if (!res.ok) return [];
+        const data = await res.json();
+        return (data.features || []).map(f => f.properties.label);
+      } catch {
+        return [];
       }
-    };
+    }
 
-    const fahrerInput = document.getElementById("fahrer");
-    const fahrerInfoBox = document.createElement("div");
-    fahrerInfoBox.id = "fahrer-info-box";
-    fahrerInfoBox.style.marginTop = "0.5rem";
-    fahrerInput.parentElement.appendChild(fahrerInfoBox);
+    function setupSuggestions(inputId, suggestionsId) {
+      const input = document.getElementById(inputId);
+      const suggBox = document.getElementById(suggestionsId);
 
-    fahrerInput.addEventListener("input", () => {
-      const eingabe = fahrerInput.value.trim().toLowerCase();
-      const daten = fahrerDaten[eingabe];
-      if (daten) {
-        fahrerInfoBox.innerHTML = `
-          <strong>Alter:</strong> ${daten.alter} Jahre<br>
-          <strong>Registrierte Fahrzeuge:</strong><br>
-          ${daten.autos.map(a => `&bull; ${a.modell} (${a.baujahr}, ${a.kraftstoff})`).join("<br>")}
-        `;
-        const auto = daten.autos[0];
-        document.getElementById("auto").value = auto.modell;
-        document.getElementById("baujahr").value = auto.baujahr;
-        document.querySelectorAll('input[name="kraftstoff"]').forEach(r => {
-          r.checked = r.value.toLowerCase() === auto.kraftstoff.toLowerCase();
+      input.addEventListener("input", async () => {
+        const val = input.value.trim();
+        if (val.length < 5) {
+          suggBox.style.display = "none";
+          suggBox.innerHTML = "";
+          return;
+        }
+        const suggestions = await fetchAddressSuggestions(val);
+        if (suggestions.length === 0) {
+          suggBox.style.display = "none";
+          suggBox.innerHTML = "";
+          return;
+        }
+        suggBox.innerHTML = suggestions.map(s => `<div class="suggestion-item">${s}</div>`).join("");
+        suggBox.style.display = "block";
+        Array.from(suggBox.children).forEach(item => {
+          item.onclick = () => {
+            input.value = item.textContent;
+            suggBox.style.display = "none";
+          };
         });
-      } else {
-        fahrerInfoBox.innerHTML = "";
-      }
-    });
+      });
 
-    const bezahlungGruppe = document.createElement("div");
-    bezahlungGruppe.className = "form-group";
-    bezahlungGruppe.style.display = "none";
-    bezahlungGruppe.innerHTML = `
-      <label for="bezahlart">Bezahlart wählen:</label>
-      <select id="bezahlart">
-        <option value="bar">Bar</option>
-        <option value="überweisung">Überweisung</option>
-        <option value="paypal">PayPal</option>
-        <option value="beckmann">Beckmann-Fahrten Guthaben (sicher)</option>
-      </select>
-    `;
-    document.querySelector(".container").appendChild(bezahlungGruppe);
+      document.addEventListener("click", (e) => {
+        if (!input.contains(e.target) && !suggBox.contains(e.target)) {
+          suggBox.style.display = "none";
+        }
+      });
+    }
 
-    document.getElementById("berechnen").addEventListener("click", () => {
-      const strecke = parseFloat(document.getElementById("strecke").value);
-      const kraftstoff = document.querySelector('input[name="kraftstoff"]:checked')?.value;
-      const baujahr = parseInt(document.getElementById("baujahr").value);
-
-      if (isNaN(strecke) || !kraftstoff || isNaN(baujahr)) {
-        document.getElementById("result").innerHTML = "Bitte alle Felder korrekt ausfüllen.";
-        return;
-      }
-
-      let faktor = 0.3; // Standard
-
-      if (kraftstoff === "diesel") faktor = 0.35;
-      if (kraftstoff === "elektro") faktor = 0.2;
-      if (baujahr < 2000) faktor += 0.05;
-
-      const kosten = strecke * faktor;
-      document.getElementById("result").innerHTML = `Gesamtkosten: ${kosten.toFixed(2)} €`;
-      bezahlungGruppe.style.display = "block";
-    });
+    setupSuggestions("start", "start-suggestions");
+    setupSuggestions("ziel", "ziel-suggestions");
   </script>
 </body>
 </html>
