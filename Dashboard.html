@@ -108,8 +108,6 @@
       background-color: #ddd;
     }
   </style>
-
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyATG0N_aygLOAoWYUT1bktNDrzIaTabRck"></script>
 </head>
 <body>
   <header>
@@ -120,60 +118,57 @@
   </header>
 
   <div class="container">
-    <div class="form-group" style="position:relative;">
+    <div class="form-group">
       <label for="start">Startadresse:</label>
       <input type="text" id="start" placeholder="Bitte eintragen" autocomplete="off" />
       <div id="start-suggestions" class="suggestions" style="display:none;"></div>
     </div>
 
-    <div class="form-group" style="position:relative;">
+    <div class="form-group">
       <label for="ziel">Zieladresse:</label>
       <input type="text" id="ziel" placeholder="Bitte eintragen" autocomplete="off" />
       <div id="ziel-suggestions" class="suggestions" style="display:none;"></div>
     </div>
 
     <div class="form-group">
-      <label for="fahrer">Fahrer auswählen oder anlegen:</label>
-      <input type="text" id="fahrer" placeholder="Bitte eintragen" autocomplete="off" list="fahrer-list" />
-      <datalist id="fahrer-list"></datalist>
+      <label for="fahrer">Fahrer:</label>
+      <input type="text" id="fahrer" placeholder="Bitte eintragen" />
+    </div>
+
+    <div class="form-group">
+      <label for="fahrgast">Fahrgast:</label>
+      <input type="text" id="fahrgast" placeholder="Bitte eintragen" />
     </div>
 
     <div class="form-group">
       <label for="auto">Auto:</label>
-      <input type="text" id="auto" placeholder="Bitte eintragen" autocomplete="off" list="auto-list" />
-      <datalist id="auto-list">
-        <option value="VW Golf"></option>
-        <option value="Audi A4"></option>
-        <option value="BMW 320i"></option>
-        <option value="Mercedes C-Klasse"></option>
-        <option value="Opel Astra"></option>
-      </datalist>
+      <input type="text" id="auto" placeholder="Bitte eintragen" />
     </div>
 
     <div class="form-group">
       <label for="baujahr">Baujahr:</label>
-      <input type="number" id="baujahr" placeholder="Bitte eintragen" min="1900" max="2099" />
+      <input type="number" id="baujahr" placeholder="Bitte eintragen" />
     </div>
 
     <div class="form-group">
       <label>Kraftstoff:</label>
       <div class="fuel-options">
-        <label><input type="radio" name="kraftstoff" value="benzin" /> Benzin</label>
-        <label><input type="radio" name="kraftstoff" value="diesel" /> Diesel</label>
-        <label><input type="radio" name="kraftstoff" value="elektro" /> Elektro</label>
-        <label><input type="radio" name="kraftstoff" value="hybrid" /> Hybrid</label>
+        <label><input type="radio" name="kraftstoff" value="benzin"> Benzin</label>
+        <label><input type="radio" name="kraftstoff" value="diesel"> Diesel</label>
+        <label><input type="radio" name="kraftstoff" value="elektro"> Elektro</label>
+        <label><input type="radio" name="kraftstoff" value="hybrid"> Hybrid</label>
       </div>
     </div>
 
     <div class="form-group">
-      <label for="trinkgeld">Trinkgeld für Fahrer:</label>
+      <label for="trinkgeld">Trinkgeld:</label>
       <select id="trinkgeld">
         <option value="" selected disabled>Bitte eintragen</option>
         <option value="0">0%</option>
         <option value="0.05">5%</option>
-        <option value="0.10">10%</option>
+        <option value="0.1">10%</option>
         <option value="0.15">15%</option>
-        <option value="0.20">20%</option>
+        <option value="0.2">20%</option>
       </select>
     </div>
 
@@ -191,14 +186,9 @@
     async function fetchAddressSuggestions(query) {
       if (query.length < 5) return [];
       const url = `https://api.openrouteservice.org/geocode/autocomplete?api_key=${ORS_API_KEY}&text=${encodeURIComponent(query)}&size=5`;
-      try {
-        const res = await fetch(url);
-        if (!res.ok) return [];
-        const data = await res.json();
-        return (data.features || []).map(f => f.properties.label);
-      } catch {
-        return [];
-      }
+      const res = await fetch(url);
+      const data = await res.json();
+      return (data.features || []).map(f => f.properties.label);
     }
 
     function setupSuggestions(inputId, suggestionsId) {
@@ -237,6 +227,51 @@
 
     setupSuggestions("start", "start-suggestions");
     setupSuggestions("ziel", "ziel-suggestions");
+
+    document.getElementById("berechnen").addEventListener("click", async () => {
+      const start = document.getElementById("start").value;
+      const ziel = document.getElementById("ziel").value;
+      const trinkgeldFaktor = parseFloat(document.getElementById("trinkgeld").value || "0");
+      const url = `https://api.openrouteservice.org/v2/directions/driving-car?api_key=${ORS_API_KEY}`;
+      const geoUrl = `https://api.openrouteservice.org/geocode/search?api_key=${ORS_API_KEY}&text=`;
+      try {
+        const [startGeo, zielGeo] = await Promise.all([
+          fetch(geoUrl + encodeURIComponent(start)).then(res => res.json()),
+          fetch(geoUrl + encodeURIComponent(ziel)).then(res => res.json())
+        ]);
+        const startCoords = startGeo.features[0].geometry.coordinates;
+        const zielCoords = zielGeo.features[0].geometry.coordinates;
+
+        const body = {
+          coordinates: [startCoords, zielCoords]
+        };
+
+        const res = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        const km = data.routes[0].summary.distance / 1000;
+        const dauer = data.routes[0].summary.duration / 60;
+        const spritkosten = km * 0.3; // z.B. 30 Cent/km
+        const fahrergehalt = km * 0.2; // z.B. 20 Cent/km
+        const gesamt = (spritkosten + fahrergehalt) * (1 + trinkgeldFaktor);
+
+        document.getElementById("result").innerHTML = `
+          <p>Entfernung: ${km.toFixed(1)} km</p>
+          <p>Dauer: ${dauer.toFixed(0)} Minuten</p>
+          <p>Spritgeld: ${spritkosten.toFixed(2)} €</p>
+          <p>Fahrergehalt: ${fahrergehalt.toFixed(2)} €</p>
+          <p>Gesamt inkl. Trinkgeld: ${gesamt.toFixed(2)} €</p>
+          <button onclick="alert('Bezahlen gestartet')">Bezahlen</button>
+        `;
+      } catch (e) {
+        document.getElementById("result").innerHTML = "<p>Fehler bei der Berechnung.</p>";
+      }
+    });
   </script>
 </body>
 </html>
